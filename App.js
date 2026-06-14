@@ -1,20 +1,26 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { StatusBar } from "expo-status-bar";
+import { AuthProvider } from "./src/context/AuthContext";
+import AppNavigator from "./src/navigation/AppNavigator";
+
+/**
+ * App.js - Punto de entrada
+ *
+ * Estructura:
+ * - AuthProvider: provee estado de autenticación global
+ * - AppNavigator: maneja navegación según estado de auth
+ * - StatusBar: estilo consistente
+ *
+ * Por qué App.js es tan limpio?
+ * - Separación de responsabilidades
+ * - App.js solo monta providers y navigator
+ * - Toda la lógica vive en sus módulos correspondientes
+ */
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <AuthProvider>
+      <AppNavigator />
+      <StatusBar style="light" />
+    </AuthProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
