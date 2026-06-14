@@ -58,6 +58,12 @@ const Badge = ({
           text: styles.textError,
           dot: styles.dotError,
         };
+      case 'orange':
+        return {
+          container: styles.orange,
+          text: styles.textOrange,
+          dot: styles.dotOrange,
+        };
       case 'info':
         return {
           container: styles.info,
@@ -168,6 +174,17 @@ const styles = StyleSheet.create({
   },
   dotError: {
     backgroundColor: colors.error,
+  },
+
+  // Variants - Orange
+  orange: {
+    backgroundColor: colors.orangeLight,
+  },
+  textOrange: {
+    color: colors.orange,
+  },
+  dotOrange: {
+    backgroundColor: colors.orange,
   },
 
   // Variants - Info

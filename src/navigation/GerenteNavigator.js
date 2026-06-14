@@ -61,7 +61,7 @@ const GerenteNavigator = () => {
       <Stack.Screen
         name="Ofertas"
         component={OfertasScreen}
-        options={{ title: 'Ofertas de Pasantía' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="OfertaDetail"
@@ -80,7 +80,7 @@ const GerenteNavigator = () => {
       <Stack.Screen
         name="Inscripciones"
         component={InscripcionesScreen}
-        options={{ title: 'Inscripciones' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="InscripcionDetail"
@@ -92,7 +92,7 @@ const GerenteNavigator = () => {
       <Stack.Screen
         name="Notificaciones"
         component={NotificacionesScreen}
-        options={{ title: 'Notificaciones' }}
+        options={{ headerShown: false }}
       />
 
       {/* Empresa */}

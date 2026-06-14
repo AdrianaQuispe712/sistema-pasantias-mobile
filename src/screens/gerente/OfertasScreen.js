@@ -2,7 +2,7 @@
  * OfertasScreen - Listado de ofertas de pasantía (rol Gerente)
  *
  * Muestra todas las ofertas con estado, cantidad de postulantes
- * y botones para cerrar/activar/terminar.
+ * y botón para ver detalles.
  *
  * @module screens/gerente/OfertasScreen
  */
@@ -13,17 +13,11 @@ import {
   Text,
   FlatList,
   RefreshControl,
-  Alert,
   StyleSheet,
 } from 'react-native';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
-import { Header, Card, Badge, Button, EmptyState, LoadingSpinner } from '../../components/ui';
-import {
-  getOfertas,
-  toggleCerrar,
-  toggleActivar,
-  toggleTerminar,
-} from '../../api/gerenteOfertas';
+import { Card, Badge, Button, EmptyState, LoadingSpinner } from '../../components/ui';
+import { getOfertas } from '../../api/gerenteOfertas';
 
 /**
  * Badge variant según estado de la oferta
@@ -35,7 +29,7 @@ const getStatusBadge = (estado) => {
       return { variant: 'success', label: 'Activa' };
     case 'cerrada':
     case 'closed':
-      return { variant: 'error', label: 'Cerrada' };
+      return { variant: 'orange', label: 'Cerrada' };
     case 'terminada':
     case 'finished':
       return { variant: 'neutral', label: 'Terminada' };
@@ -52,7 +46,6 @@ const OfertasScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
-  const [actionLoading, setActionLoading] = useState(null);
 
   const fetchOfertas = useCallback(async (isRefresh = false) => {
     try {
@@ -82,95 +75,6 @@ const OfertasScreen = ({ navigation }) => {
     return unsubscribe;
   }, [navigation, fetchOfertas]);
 
-  const handleCerrar = (oferta) => {
-    Alert.alert(
-      'Cerrar Oferta',
-      `¿Desea cerrar "${oferta.titulo || oferta.nombre}"?\n\n` +
-      'Nota: Todos los pasantes aceptados deben tener un jefe asignado.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Cerrar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setActionLoading(oferta.id);
-              await toggleCerrar(oferta.id);
-              Alert.alert('Éxito', 'Oferta cerrada');
-              fetchOfertas();
-            } catch (err) {
-              const message =
-                err?.response?.data?.message ||
-                'No se pudo cerrar la oferta. Verifique que todos los pasantes aceptados tengan un jefe asignado.';
-              Alert.alert('Error', message);
-            } finally {
-              setActionLoading(null);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleReabrir = (oferta) => {
-    Alert.alert(
-      'Reabrir Oferta',
-      `¿Desea reabrir "${oferta.titulo || oferta.nombre}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Reabrir',
-          style: 'default',
-          onPress: async () => {
-            try {
-              setActionLoading(oferta.id);
-              await toggleActivar(oferta.id);
-              Alert.alert('Éxito', 'Oferta reabierta');
-              fetchOfertas();
-            } catch (err) {
-              const message =
-                err?.response?.data?.message ||
-                'No se pudo reabrir la oferta';
-              Alert.alert('Error', message);
-            } finally {
-              setActionLoading(null);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleTerminar = (oferta) => {
-    Alert.alert(
-      'Terminar Oferta',
-      `¿Desea marcar "${oferta.titulo || oferta.nombre}" como terminada?\n\n` +
-      'Nota: Todos los pasantes deben tener su informe final subido.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Terminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setActionLoading(oferta.id);
-              await toggleTerminar(oferta.id);
-              Alert.alert('Éxito', 'Oferta terminada');
-              fetchOfertas();
-            } catch (err) {
-              const message =
-                err?.response?.data?.message ||
-                'No se pudo terminar la oferta. Verifique que todos los informes finales estén subidos.';
-              Alert.alert('Error', message);
-            } finally {
-              setActionLoading(null);
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const navigateToDetail = (oferta) => {
     navigation?.navigate('OfertaDetail', { ofertaId: oferta.id });
   };
@@ -181,13 +85,20 @@ const OfertasScreen = ({ navigation }) => {
     const badge = getStatusBadge(item.estado);
     const postulantesCount =
       item.postulantes_count ?? item.postulantesCount ?? item.num_postulantes ?? 0;
-    const isActionLoading = actionLoading === item.id;
+
+    // Color del borde lateral según estado
+    const statusBorderColor = {
+      activa: colors.success,
+      cerrada: colors.orange,
+      terminada: colors.grayMedium,
+      borrador: colors.warning,
+    }[item.estado] || colors.primary;
 
     return (
       <Card
         variant="default"
         onPress={() => navigateToDetail(item)}
-        style={styles.ofertaCard}
+        style={[styles.ofertaCard, { borderLeftColor: statusBorderColor, borderLeftWidth: 4 }]}
       >
         <View style={styles.ofertaHeader}>
           <View style={styles.ofertaTitleRow}>
@@ -213,48 +124,15 @@ const OfertasScreen = ({ navigation }) => {
           )}
         </View>
 
-        {/* ── Action Buttons (contextuales por estado) ── */}
+        {/* ── Botón Ver Detalles ── */}
         <View style={styles.ofertaActions}>
-          {/* ACTIVA: Solo puede Cerrar */}
-          {item.estado === 'activa' && (
-            <Button
-              variant="outline"
-              size="sm"
-              title="Cerrar"
-              loading={isActionLoading}
-              disabled={isActionLoading}
-              onPress={() => handleCerrar(item)}
-              style={styles.actionBtn}
-              textStyle={styles.cerrarActionText}
-            />
-          )}
-
-          {/* CERRADA: Puede Reabrir o Terminar */}
-          {item.estado === 'cerrada' && (
-            <>
-              <Button
-                variant="primary"
-                size="sm"
-                title="Reabrir"
-                loading={isActionLoading}
-                disabled={isActionLoading}
-                onPress={() => handleReabrir(item)}
-                style={styles.actionBtn}
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                title="Terminar"
-                loading={isActionLoading}
-                disabled={isActionLoading}
-                onPress={() => handleTerminar(item)}
-                style={[styles.actionBtn, styles.dangerAction]}
-                textStyle={styles.dangerActionText}
-              />
-            </>
-          )}
-
-          {/* TERMINADA: Sin botones (punto final) */}
+          <Button
+            variant="primary"
+            size="sm"
+            title="Ver Detalles"
+            onPress={() => navigateToDetail(item)}
+            style={styles.detailsBtn}
+          />
         </View>
       </Card>
     );
@@ -265,7 +143,6 @@ const OfertasScreen = ({ navigation }) => {
   if (loading && !refreshing) {
     return (
       <View style={styles.screen}>
-        <Header title="Ofertas" subtitle="Gestión de ofertas" />
         <LoadingSpinner fullScreen message="Cargando ofertas..." />
       </View>
     );
@@ -276,7 +153,6 @@ const OfertasScreen = ({ navigation }) => {
   if (error && !refreshing && ofertas.length === 0) {
     return (
       <View style={styles.screen}>
-        <Header title="Ofertas" subtitle="Gestión de ofertas" />
         <EmptyState
           icon={<Text style={styles.errorIcon}>⚠️</Text>}
           title="Error"
@@ -293,7 +169,6 @@ const OfertasScreen = ({ navigation }) => {
   if (!loading && ofertas.length === 0) {
     return (
       <View style={styles.screen}>
-        <Header title="Ofertas" subtitle="Gestión de ofertas" />
         <EmptyState
           icon={<Text style={styles.emptyIcon}>💼</Text>}
           title="Sin ofertas"
@@ -309,8 +184,6 @@ const OfertasScreen = ({ navigation }) => {
 
   return (
     <View style={styles.screen}>
-      <Header title="Ofertas" subtitle="Gestión de ofertas" />
-
       {/* Crear Oferta Button */}
       <View style={styles.createButtonContainer}>
         <Button
@@ -354,6 +227,7 @@ const styles = StyleSheet.create({
   },
   ofertaCard: {
     marginBottom: spacing.md,
+    borderLeftColor: colors.primary,
   },
   ofertaHeader: {
     marginBottom: spacing.sm,
@@ -389,20 +263,10 @@ const styles = StyleSheet.create({
   ofertaActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: spacing.sm,
     marginTop: spacing.sm,
   },
-  actionBtn: {
-    minWidth: 80,
-  },
-  cerrarActionText: {
-    color: colors.error,
-  },
-  dangerAction: {
-    borderColor: colors.error,
-  },
-  dangerActionText: {
-    color: colors.error,
+  detailsBtn: {
+    minWidth: 120,
   },
   emptyIcon: {
     fontSize: 48,

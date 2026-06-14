@@ -17,7 +17,6 @@ import {
 } from 'react-native';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import {
-  Header,
   Card,
   Badge,
   Button,
@@ -30,6 +29,22 @@ import {
   aprobar,
   rechazar,
 } from '../../api/gerenteInscripciones';
+
+// ─── Date formatting helper ───────────────────────────────
+const MESES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return '';
+  const parts = String(dateStr).split(/[/\-T ]/);
+  if (parts.length < 3) return dateStr;
+  const [year, month, day] = parts;
+  const m = parseInt(month, 10);
+  if (isNaN(m) || m < 1 || m > 12) return dateStr;
+  return `${parseInt(day, 10)} ${MESES[m - 1]} ${year}`;
+};
 
 /**
  * Badge variant según estado
@@ -45,6 +60,9 @@ const getStatusBadge = (estado) => {
     case 'rechazado':
     case 'rechazada':
       return { variant: 'error', label: 'Rechazado' };
+    case 'completado':
+    case 'completada':
+      return { variant: 'info', label: 'Completado' };
     default:
       return { variant: 'neutral', label: estado || 'Sin estado' };
   }
@@ -130,12 +148,6 @@ const InscripcionDetailScreen = ({ route, navigation }) => {
   if (loading) {
     return (
       <View style={styles.screen}>
-        <Header
-          title="Detalle"
-          subtitle="Inscripción"
-          leftIcon={<Text style={styles.backIcon}>←</Text>}
-          onLeftPress={() => navigation?.goBack()}
-        />
         <LoadingSpinner fullScreen message="Cargando inscripción..." />
       </View>
     );
@@ -144,12 +156,6 @@ const InscripcionDetailScreen = ({ route, navigation }) => {
   if (error || !inscripcion) {
     return (
       <View style={styles.screen}>
-        <Header
-          title="Detalle"
-          subtitle="Inscripción"
-          leftIcon={<Text style={styles.backIcon}>←</Text>}
-          onLeftPress={() => navigation?.goBack()}
-        />
         <EmptyState
           icon={<Text style={styles.errorIcon}>⚠️</Text>}
           title="Error"
@@ -184,13 +190,6 @@ const InscripcionDetailScreen = ({ route, navigation }) => {
 
   return (
     <View style={styles.screen}>
-      <Header
-        title="Detalle Inscripción"
-        subtitle={pasanteName || 'Inscripción'}
-        leftIcon={<Text style={styles.backIcon}>←</Text>}
-        onLeftPress={() => navigation?.goBack()}
-      />
-
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -203,7 +202,7 @@ const InscripcionDetailScreen = ({ route, navigation }) => {
             <Badge variant={badge.variant} label={badge.label} size="md" />
           </View>
           {inscripcion.fecha && (
-            <Text style={styles.dateText}>📅 {inscripcion.fecha}</Text>
+            <Text style={styles.dateText}>{formatDate(inscripcion.fecha)}</Text>
           )}
         </Card>
 

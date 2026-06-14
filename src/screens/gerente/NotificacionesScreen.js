@@ -1,8 +1,11 @@
 /**
  * NotificacionesScreen - Listado de notificaciones (rol Gerente)
  *
- * Muestra todas las notificaciones con icono según tipo,
- * permite marcar como leídas individualmente.
+ * Muestra solo notificaciones de tipo:
+ * - nueva_inscripcion (badge: "Inscripción")
+ * - actividad_completada (badge: "Actividad")
+ *
+ * Al tocar una notificación se marca como leída automáticamente.
  *
  * @module screens/gerente/NotificacionesScreen
  */
@@ -14,81 +17,58 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
-  Alert,
   StyleSheet,
 } from 'react-native';
-import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
-import { Header, Card, Badge, EmptyState, LoadingSpinner } from '../../components/ui';
+import { colors, spacing, typography, borderRadius } from '../../theme';
+import { Card, Badge, EmptyState, LoadingSpinner } from '../../components/ui';
 import {
   getNotificaciones,
   markAsRead,
 } from '../../api/gerenteNotificaciones';
+import { getInscripcion } from '../../api/gerenteInscripciones';
 
 /**
- * Icono según tipo de notificación
+ * Formatea fecha ISO a dd/mm/aaaa
  */
-const getNotificationIcon = (tipo) => {
-  switch (tipo) {
-    case 'actividad':
-    case 'activity':
-      return '📋';
-    case 'inscripcion':
-    case 'inscription':
-      return '📝';
-    case 'oferta':
-    case 'offer':
-      return '💼';
-    case 'bitacora':
-    case 'log':
-      return '📖';
-    case 'sistema':
-    case 'system':
-      return '⚙️';
-    case 'alerta':
-    case 'alert':
-      return '🔔';
-    case 'mensaje':
-    case 'message':
-      return '💬';
-    default:
-      return '📌';
+const formatDate = (dateStr) => {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch {
+    return dateStr;
   }
 };
 
 /**
- * Badge variant según tipo
+ * Configuración de tipos permitidos para gerente
+ * target: tab name to navigate to when tapped
  */
-const getTypeBadge = (tipo) => {
-  switch (tipo) {
-    case 'actividad':
-    case 'activity':
-      return { variant: 'info', label: 'Actividad' };
-    case 'inscripcion':
-    case 'inscription':
-      return { variant: 'success', label: 'Inscripción' };
-    case 'oferta':
-    case 'offer':
-      return { variant: 'warning', label: 'Oferta' };
-    case 'bitacora':
-    case 'log':
-      return { variant: 'neutral', label: 'Bitácora' };
-    case 'sistema':
-    case 'system':
-      return { variant: 'info', label: 'Sistema' };
-    case 'alerta':
-    case 'alert':
-      return { variant: 'error', label: 'Alerta' };
-    default:
-      return { variant: 'neutral', label: tipo || 'General' };
-  }
+const NOTIF_CONFIG = {
+  nueva_inscripcion: {
+    icon: '📝',
+    badge: { variant: 'success', label: 'Inscripción' },
+    target: 'InscripcionesTab',
+    params: { initialFilter: 'pendiente' },
+  },
+  actividad_completada: {
+    icon: '📋',
+    badge: { variant: 'info', label: 'Actividad' },
+    target: 'DashboardTab',
+  },
 };
+
+const DEFAULT_CONFIG = { icon: '📌', badge: { variant: 'neutral', label: 'General' }, target: null };
 
 const NotificacionesScreen = ({ navigation }) => {
   const [notificaciones, setNotificaciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
-  const [markingId, setMarkingId] = useState(null);
 
   const fetchNotificaciones = useCallback(async (isRefresh = false) => {
     try {
@@ -97,10 +77,12 @@ const NotificacionesScreen = ({ navigation }) => {
 
       setError(null);
       const data = await getNotificaciones();
-      setNotificaciones(Array.isArray(data) ? data : data?.data || []);
+      const all = Array.isArray(data) ? data : data?.data || [];
+      // Filter: only keep allowed types
+      setNotificaciones(all.filter((n) => NOTIF_CONFIG[n.tipo || n.type]));
     } catch (err) {
       console.error('Error fetching notificaciones:', err);
-      setError('No se pudieron cargar las notificaciones. Intente de nuevo.');
+      setError('No se pudieron cargar las notificaciones.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -118,23 +100,49 @@ const NotificacionesScreen = ({ navigation }) => {
     return unsubscribe;
   }, [navigation, fetchNotificaciones]);
 
-  const handleMarkAsRead = async (notificacion) => {
-    if (notificacion.leida || notificacion.read) return;
+  /**
+   * Tocar una notificación → auto mark as read + navigate to target
+   */
+  const handlePress = async (notificacion) => {
+    const tipo = notificacion.tipo || notificacion.type;
+    const config = NOTIF_CONFIG[tipo] || DEFAULT_CONFIG;
 
-    try {
-      setMarkingId(notificacion.id);
-      await markAsRead(notificacion.id);
+    // Mark as read if not already
+    if (!notificacion.leida && !notificacion.read) {
+      try {
+        await markAsRead(notificacion.id);
+        setNotificaciones((prev) =>
+          prev.map((n) =>
+            n.id === notificacion.id ? { ...n, leida: true, read: true } : n
+          )
+        );
+      } catch (err) {
+        console.error('Error marking as read:', err);
+      }
+    }
 
-      // Update local state immediately
-      setNotificaciones((prev) =>
-        prev.map((n) =>
-          n.id === notificacion.id ? { ...n, leida: true, read: true } : n
-        )
-      );
-    } catch (err) {
-      console.error('Error marking as read:', err);
-    } finally {
-      setMarkingId(null);
+    // Navigate to target tab
+    if (config.target && navigation?.navigate) {
+      // For nueva_inscripcion, fetch current state to determine filter
+      if (tipo === 'nueva_inscripcion' && notificacion.data?.inscripcion_id) {
+        try {
+          const insc = await getInscripcion(notificacion.data.inscripcion_id);
+          const estado = insc?.data?.estado || insc?.estado;
+          const filterMap = {
+            pendiente: 'pendiente',
+            aceptado: 'aceptado',
+            rechazado: 'rechazado',
+            completado: 'completado',
+          };
+          const filter = filterMap[estado] || 'pendiente';
+          navigation.navigate(config.target, { initialFilter: filter });
+          return;
+        } catch (err) {
+          // Fallback to default filter
+          console.error('Error fetching inscripcion:', err);
+        }
+      }
+      navigation.navigate(config.target, config.params || {});
     }
   };
 
@@ -142,19 +150,19 @@ const NotificacionesScreen = ({ navigation }) => {
 
   const renderNotificacionItem = ({ item }) => {
     const isLeida = item.leida || item.read;
-    const icon = getNotificationIcon(item.tipo);
-    const typeBadge = getTypeBadge(item.tipo);
+    const tipo = item.tipo || item.type;
+    const config = NOTIF_CONFIG[tipo] || DEFAULT_CONFIG;
 
     return (
       <Card
         variant={isLeida ? 'outlined' : 'default'}
-        onPress={() => handleMarkAsRead(item)}
+        onPress={() => handlePress(item)}
         style={[styles.notifCard, !isLeida && styles.notifCardUnread]}
       >
         <View style={styles.notifRow}>
           {/* Icon */}
           <View style={styles.iconContainer}>
-            <Text style={styles.notifIcon}>{icon}</Text>
+            <Text style={styles.notifIcon}>{config.icon}</Text>
             {!isLeida && <View style={styles.unreadDot} />}
           </View>
 
@@ -167,29 +175,16 @@ const NotificacionesScreen = ({ navigation }) => {
               >
                 {item.titulo || item.title || 'Notificación'}
               </Text>
-              <Badge variant={typeBadge.variant} label={typeBadge.label} size="sm" />
+              <Badge variant={config.badge.variant} label={config.badge.label} size="sm" />
             </View>
 
-            <Text style={styles.notifMessage} numberOfLines={3}>
+            <Text style={styles.notifMessage} numberOfLines={2}>
               {item.mensaje || item.message || item.descripcion || ''}
             </Text>
 
-            <View style={styles.notifFooter}>
-              <Text style={styles.notifDate}>
-                {item.fecha || item.created_at || item.fecha_creacion || ''}
-              </Text>
-              {!isLeida && (
-                <TouchableOpacity
-                  onPress={() => handleMarkAsRead(item)}
-                  disabled={markingId === item.id}
-                  style={styles.markReadButton}
-                >
-                  <Text style={styles.markReadText}>
-                    {markingId === item.id ? '...' : 'Marcar leído'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            <Text style={styles.notifDate}>
+              {formatDate(item.fecha || item.created_at || item.fecha_creacion)}
+            </Text>
           </View>
         </View>
       </Card>
@@ -201,7 +196,6 @@ const NotificacionesScreen = ({ navigation }) => {
   if (loading && !refreshing) {
     return (
       <View style={styles.screen}>
-        <Header title="Notificaciones" subtitle="Centro de notificaciones" />
         <LoadingSpinner fullScreen message="Cargando notificaciones..." />
       </View>
     );
@@ -212,7 +206,6 @@ const NotificacionesScreen = ({ navigation }) => {
   if (error && !refreshing && notificaciones.length === 0) {
     return (
       <View style={styles.screen}>
-        <Header title="Notificaciones" subtitle="Centro de notificaciones" />
         <EmptyState
           icon={<Text style={styles.errorIcon}>⚠️</Text>}
           title="Error"
@@ -229,7 +222,6 @@ const NotificacionesScreen = ({ navigation }) => {
   if (!loading && notificaciones.length === 0) {
     return (
       <View style={styles.screen}>
-        <Header title="Notificaciones" subtitle="Centro de notificaciones" />
         <EmptyState
           icon={<Text style={styles.emptyIcon}>🔔</Text>}
           title="Sin notificaciones"
@@ -243,21 +235,8 @@ const NotificacionesScreen = ({ navigation }) => {
 
   // ─── Main List ─────────────────────────────────────────────
 
-  const unreadCount = notificaciones.filter(
-    (n) => !n.leida && !n.read
-  ).length;
-
   return (
     <View style={styles.screen}>
-      <Header
-        title="Notificaciones"
-        subtitle={
-          unreadCount > 0
-            ? `${unreadCount} sin leer`
-            : 'Centro de notificaciones'
-        }
-      />
-
       <FlatList
         data={notificaciones}
         keyExtractor={(item) => String(item.id)}
@@ -345,23 +324,9 @@ const styles = StyleSheet.create({
     lineHeight: typography.sm * typography.normal,
     marginBottom: spacing.sm,
   },
-  notifFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
   notifDate: {
     fontSize: typography.xs,
     color: colors.textLight,
-  },
-  markReadButton: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-  },
-  markReadText: {
-    fontSize: typography.xs,
-    color: colors.secondary,
-    fontWeight: typography.medium,
   },
   emptyIcon: {
     fontSize: 48,

@@ -65,6 +65,8 @@ export const colors = {
   warningLight: '#FEF3C7',
   error: '#EF4444',        // Error, rechazado
   errorLight: '#FEE2E2',
+  orange: '#F07020',       // Cerrada, naranja
+  orangeLight: '#FED7AA',
   info: '#3B82F6',         // Información
   infoLight: '#DBEAFE',
   

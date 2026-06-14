@@ -7,7 +7,7 @@
  * Backend validation (OfertasController::store/update):
  *   titulo: required|string|max:255
  *   descripcion: required|string
- *   modalidad: required|string|in:Presencial,Virtual,Híbrida
+ *   modalidad: required|string|in:Presencial,Remoto,Híbrido
  *   fechaInicio: required|date (YYYY-MM-DD)
  *   fechaFinal: required|date|after:fechaInicio
  *   vacantes: required|integer|min:1
@@ -26,17 +26,25 @@ import {
   Platform,
   Modal,
 } from 'react-native';
-import { colors, spacing, typography, borderRadius } from '../../theme';
-import { Header, Card, Input, Button, LoadingSpinner } from '../../components/ui';
+import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
+import { Input, Button, LoadingSpinner } from '../../components/ui';
 import {
   getOferta,
   createOferta,
   updateOferta,
-  deleteOferta,
 } from '../../api/gerenteOfertas';
 
-// ─── Modalidad options (must match backend: Presencial,Virtual,Híbrida) ───
-const MODALIDADES = ['Presencial', 'Virtual', 'Híbrida'];
+// ─── Modalidad options (must match backend: Presencial,Remoto,Híbrido) ───
+const MODALIDADES = ['Presencial', 'Remoto', 'Híbrido'];
+
+// Normalize modalidad case: capitalize first letter to match picker options
+const normalizeModalidad = (value) => {
+  if (!value) return '';
+  const match = MODALIDADES.find(
+    (m) => m.toLowerCase() === value.toLowerCase()
+  );
+  return match || value;
+};
 
 /**
  * Date input with simple YYYY-MM-DD validation
@@ -79,7 +87,7 @@ const OfertaFormScreen = ({ route, navigation }) => {
     if (ofertaData) {
       setTitulo(ofertaData.titulo || '');
       setDescripcion(ofertaData.descripcion || '');
-      setModalidad(ofertaData.modalidad || '');
+      setModalidad(normalizeModalidad(ofertaData.modalidad) || '');
       setFechaInicio(ofertaData.fechaInicio || '');
       setFechaFinal(ofertaData.fechaFinal || '');
       setVacantes(ofertaData.vacantes?.toString() || '');
@@ -94,7 +102,7 @@ const OfertaFormScreen = ({ route, navigation }) => {
       const data = response?.data || response;
       setTitulo(data.titulo || '');
       setDescripcion(data.descripcion || '');
-      setModalidad(data.modalidad || '');
+      setModalidad(normalizeModalidad(data.modalidad) || '');
       setFechaInicio(data.fechaInicio || '');
       setFechaFinal(data.fechaFinal || '');
       setVacantes(data.vacantes?.toString() || '');
@@ -105,7 +113,7 @@ const OfertaFormScreen = ({ route, navigation }) => {
     } finally {
       setLoading(false);
     }
-  }, [isEdit, ofertaId, ofertaData, navigation]);
+  }, [isEdit, ofertaId, ofertaData]);
 
   useEffect(() => {
     loadOferta();
@@ -127,10 +135,10 @@ const OfertaFormScreen = ({ route, navigation }) => {
       newErrors.descripcion = 'La descripción es obligatoria';
     }
 
-    // modalidad: required|in:Presencial,Virtual,Híbrida
+    // modalidad: required|in:Presencial,Remoto,Híbrido
     if (!modalidad) {
       newErrors.modalidad = 'Seleccione una modalidad';
-    } else if (!MODALIDADES.includes(modalidad)) {
+    } else if (!MODALIDADES.some((m) => m.toLowerCase() === modalidad.toLowerCase())) {
       newErrors.modalidad = 'Modalidad inválida';
     }
 
@@ -167,17 +175,17 @@ const OfertaFormScreen = ({ route, navigation }) => {
   const handleSubmit = async () => {
     if (!validate()) return;
 
+    const payload = {
+      titulo: titulo.trim(),
+      descripcion: descripcion.trim(),
+      modalidad,
+      fechaInicio: fechaInicio.trim(),
+      fechaFinal: fechaFinal.trim(),
+      vacantes: parseInt(vacantes.trim(), 10),
+    };
+
     try {
       setSubmitting(true);
-
-      const payload = {
-        titulo: titulo.trim(),
-        descripcion: descripcion.trim(),
-        modalidad,
-        fechaInicio: fechaInicio.trim(),
-        fechaFinal: fechaFinal.trim(),
-        vacantes: parseInt(vacantes.trim(), 10),
-      };
 
       if (isEdit) {
         await updateOferta(ofertaId, payload);
@@ -192,6 +200,11 @@ const OfertaFormScreen = ({ route, navigation }) => {
       }
     } catch (err) {
       console.error('Error saving oferta:', err);
+      // Log full validation errors from backend
+      if (err?.response?.data) {
+        console.log('Backend response data:', JSON.stringify(err.response.data, null, 2));
+      }
+      console.log('Payload sent:', JSON.stringify(payload, null, 2));
       const message =
         err?.response?.data?.message ||
         err?.message ||
@@ -200,35 +213,6 @@ const OfertaFormScreen = ({ route, navigation }) => {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  // ─── Delete handler ─────────────────────────────────────
-  const handleDelete = () => {
-    Alert.alert(
-      'Eliminar Oferta',
-      '¿Está seguro que desea eliminar esta oferta? Esta acción no se puede deshacer.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setSubmitting(true);
-              await deleteOferta(ofertaId);
-              Alert.alert('Éxito', 'Oferta eliminada', [
-                { text: 'OK', onPress: () => navigation?.goBack() },
-              ]);
-            } catch (err) {
-              console.error('Error deleting oferta:', err);
-              Alert.alert('Error', 'No se pudo eliminar la oferta');
-            } finally {
-              setSubmitting(false);
-            }
-          },
-        },
-      ]
-    );
   };
 
   // ─── Modalidad picker modal ─────────────────────────────
@@ -284,11 +268,6 @@ const OfertaFormScreen = ({ route, navigation }) => {
   if (loading) {
     return (
       <View style={styles.screen}>
-        <Header
-          title={isEdit ? 'Editar Oferta' : 'Nueva Oferta'}
-          leftIcon={<Text style={styles.backIcon}>←</Text>}
-          onLeftPress={() => navigation?.goBack()}
-        />
         <LoadingSpinner fullScreen message="Cargando..." />
       </View>
     );
@@ -297,21 +276,15 @@ const OfertaFormScreen = ({ route, navigation }) => {
   // ─── Main render ────────────────────────────────────────
   return (
     <View style={styles.screen}>
-      <Header
-        title={isEdit ? 'Editar Oferta' : 'Nueva Oferta'}
-        subtitle={isEdit ? titulo : 'Complete los datos'}
-        leftIcon={<Text style={styles.backIcon}>←</Text>}
-        onLeftPress={() => navigation?.goBack()}
-      />
-
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
       >
         {/* ── Form Card ── */}
-        <Card variant="default" style={styles.formCard}>
+        {/* Using View instead of Card to avoid overflow:'hidden' which breaks TextInput focus on Android */}
+        <View style={styles.formCard}>
           {/* Título */}
           <Input
             label="Título *"
@@ -398,7 +371,7 @@ const OfertaFormScreen = ({ route, navigation }) => {
             error={errors.vacantes}
             keyboardType="numeric"
           />
-        </Card>
+        </View>
 
         {/* ── Action Buttons ── */}
         <View style={styles.actions}>
@@ -411,18 +384,6 @@ const OfertaFormScreen = ({ route, navigation }) => {
             fullWidth
             style={styles.submitButton}
           />
-
-          {isEdit && (
-            <Button
-              variant="ghost"
-              title="Eliminar Oferta"
-              onPress={handleDelete}
-              disabled={submitting}
-              fullWidth
-              style={styles.deleteButton}
-              textStyle={styles.deleteButtonText}
-            />
-          )}
 
           <Button
             variant="outline"
@@ -458,7 +419,11 @@ const styles = StyleSheet.create({
     fontSize: typography.xl,
   },
   formCard: {
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
     marginBottom: spacing.lg,
+    ...shadows.sm,
   },
   fieldWrapper: {
     marginBottom: spacing.lg,
@@ -507,13 +472,6 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginBottom: spacing.sm,
-  },
-  deleteButton: {
-    borderColor: colors.error,
-    marginBottom: spacing.sm,
-  },
-  deleteButtonText: {
-    color: colors.error,
   },
   // Modal styles
   modalOverlay: {

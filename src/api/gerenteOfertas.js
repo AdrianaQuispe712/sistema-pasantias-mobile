@@ -14,6 +14,9 @@ import apiClient from "./client";
  * GET    /gerente/ofertas/:id/postulantes → postulantes de una oferta
  * GET    /gerente/ofertas/:id/check-informes → verificar si puede terminar
  * GET    /gerente/ofertas/vacantes/list → listar vacantes
+ *
+ * Validación de eliminación: se usa GET /postulantes para verificar
+ * que no haya inscripciones aceptadas antes de permitir la eliminación.
  */
 
 export const getOfertas = async () => {

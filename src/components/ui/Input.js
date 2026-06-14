@@ -200,15 +200,15 @@ const styles = StyleSheet.create({
   },
   containerFocused: {
     borderColor: colors.primary,
+    // NOTE: No elevation on Android — with New Architecture (Fabric),
+    // elevation changes trigger synchronous native relayout that causes
+    // TextInput to lose/regain focus in a flickering loop.
     ...Platform.select({
       ios: {
         shadowColor: colors.primary,
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
       },
     }),
   },

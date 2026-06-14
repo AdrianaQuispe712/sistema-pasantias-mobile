@@ -36,7 +36,7 @@ const OfertasScreen = () => {
   const [selectedModality, setSelectedModality] = useState('Todas');
 
   // Modalidades disponibles para filtro
-  const modalidades = ['Todas', 'Presencial', 'Virtual', 'Híbrida'];
+  const modalidades = ['Todas', 'Presencial', 'Remoto', 'Híbrido'];
 
   /**
    * Carga las ofertas desde la API

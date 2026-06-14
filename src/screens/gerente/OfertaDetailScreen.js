@@ -7,7 +7,7 @@
  * @module screens/gerente/OfertaDetailScreen
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,6 @@ import {
 } from 'react-native';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import {
-  Header,
   Card,
   Badge,
   Button,
@@ -32,6 +31,7 @@ import {
   toggleActivar,
   toggleTerminar,
   checkInformes,
+  deleteOferta,
 } from '../../api/gerenteOfertas';
 
 /**
@@ -44,7 +44,7 @@ const getStatusBadge = (estado) => {
       return { variant: 'success', label: 'Activa' };
     case 'cerrada':
     case 'closed':
-      return { variant: 'error', label: 'Cerrada' };
+      return { variant: 'orange', label: 'Cerrada' };
     case 'terminada':
     case 'finished':
       return { variant: 'neutral', label: 'Terminada' };
@@ -64,12 +64,9 @@ const getPostulanteBadge = (estado) => {
     case 'aceptado':
     case 'aceptada':
       return { variant: 'success', label: 'Aceptado' };
-    case 'pendiente':
-    case 'pending':
-      return { variant: 'warning', label: 'Pendiente' };
-    case 'rechazado':
-    case 'rechazada':
-      return { variant: 'error', label: 'Rechazado' };
+    case 'completado':
+    case 'completada':
+      return { variant: 'info', label: 'Completado' };
     default:
       return { variant: 'neutral', label: estado || 'Sin estado' };
   }
@@ -115,6 +112,15 @@ const OfertaDetailScreen = ({ route, navigation }) => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Filtrar postulantes: solo aceptado y completado (ANTES de los returns condicionales)
+  const postulantesFiltrados = useMemo(() => {
+    return postulantes.filter((p) => {
+      const estado = p.estado?.toLowerCase();
+      return estado === 'aceptado' || estado === 'aceptada' ||
+             estado === 'completado' || estado === 'completada';
+    });
+  }, [postulantes]);
 
   const handleCerrar = () => {
     Alert.alert(
@@ -230,17 +236,73 @@ const OfertaDetailScreen = ({ route, navigation }) => {
     );
   };
 
+  const handleDelete = async () => {
+    // Verificar que no haya postulantes aceptados/completados
+    try {
+      setActionLoading('verificar');
+      const postulantesResponse = await getPostulantes(ofertaId);
+      const postulantes = postulantesResponse?.data || postulantesResponse || [];
+      const bloqueados = postulantes.filter((p) => {
+        const estado = p.estado?.toLowerCase();
+        return (
+          estado === 'aceptada' ||
+          estado === 'aceptado' ||
+          estado === 'completada' ||
+          estado === 'completado'
+        );
+      });
+
+      if (bloqueados.length > 0) {
+        Alert.alert(
+          'No se puede eliminar',
+          'Esta oferta tiene inscripciones aceptadas o completadas y no puede ser eliminada.'
+        );
+        setActionLoading(null);
+        return;
+      }
+    } catch (err) {
+      console.error('Error checking postulantes:', err);
+      // If we can't check, allow the delete attempt (backend will validate)
+    }
+
+    // Resetear loading ANTES de mostrar el diálogo
+    setActionLoading(null);
+
+    Alert.alert(
+      'Eliminar Oferta',
+      '¿Está seguro que desea eliminar esta oferta? Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setActionLoading('eliminar');
+              await deleteOferta(ofertaId);
+              Alert.alert('Éxito', 'Oferta eliminada', [
+                { text: 'OK', onPress: () => navigation?.goBack() },
+              ]);
+            } catch (err) {
+              console.error('Error deleting oferta:', err);
+              const message =
+                err?.response?.data?.message ||
+                'No se pudo eliminar la oferta';
+              Alert.alert('Error', message);
+            } finally {
+              setActionLoading(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // ─── Render ────────────────────────────────────────────────
 
   if (loading) {
     return (
       <View style={styles.screen}>
-        <Header
-          title="Detalle"
-          subtitle="Oferta"
-          leftIcon={<Text style={styles.backIcon}>←</Text>}
-          onLeftPress={() => navigation?.goBack()}
-        />
         <LoadingSpinner fullScreen message="Cargando oferta..." />
       </View>
     );
@@ -249,12 +311,6 @@ const OfertaDetailScreen = ({ route, navigation }) => {
   if (error || !oferta) {
     return (
       <View style={styles.screen}>
-        <Header
-          title="Detalle"
-          subtitle="Oferta"
-          leftIcon={<Text style={styles.backIcon}>←</Text>}
-          onLeftPress={() => navigation?.goBack()}
-        />
         <EmptyState
           icon={<Text style={styles.errorIcon}>⚠️</Text>}
           title="Error"
@@ -270,13 +326,6 @@ const OfertaDetailScreen = ({ route, navigation }) => {
 
   return (
     <View style={styles.screen}>
-      <Header
-        title="Detalle Oferta"
-        subtitle={oferta.titulo || oferta.nombre || ''}
-        leftIcon={<Text style={styles.backIcon}>←</Text>}
-        onLeftPress={() => navigation?.goBack()}
-      />
-
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -302,16 +351,16 @@ const OfertaDetailScreen = ({ route, navigation }) => {
                 <Text style={styles.infoValue}>{oferta.empresa}</Text>
               </View>
             )}
-            {oferta.vacantes && (
+            {oferta.fechaInicio && (
               <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Vacantes</Text>
-                <Text style={styles.infoValue}>{oferta.vacantes}</Text>
+                <Text style={styles.infoLabel}>Fecha Inicio</Text>
+                <Text style={styles.infoValue}>{oferta.fechaInicio}</Text>
               </View>
             )}
-            {oferta.fecha_limite && (
+            {oferta.fechaFinal && (
               <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Fecha Límite</Text>
-                <Text style={styles.infoValue}>{oferta.fecha_limite}</Text>
+                <Text style={styles.infoLabel}>Fecha Final</Text>
+                <Text style={styles.infoValue}>{oferta.fechaFinal}</Text>
               </View>
             )}
             {oferta.salario && (
@@ -338,10 +387,10 @@ const OfertaDetailScreen = ({ route, navigation }) => {
         {/* ── Postulantes ── */}
         <Card variant="default" style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>
-            Postulantes ({postulantes.length})
+            Postulantes ({postulantesFiltrados.length})
           </Text>
-          {postulantes.length > 0 ? (
-            postulantes.map((postulante, index) => {
+          {postulantesFiltrados.length > 0 ? (
+            postulantesFiltrados.map((postulante, index) => {
               const pBadge = getPostulanteBadge(postulante.estado);
               const nombre =
                 postulante.nombre ||
@@ -373,67 +422,118 @@ const OfertaDetailScreen = ({ route, navigation }) => {
         {/* ── Actions ── */}
         <Card variant="default" style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Acciones</Text>
-          <View style={styles.actionsColumn}>
-            {/* Editar - siempre disponible */}
-            <Button
-              variant="primary"
-              title="Editar Oferta"
-              onPress={() => navigation?.navigate('OfertaForm', {
-                ofertaId: oferta.id || oferta.idOferta,
-                ofertaData: {
-                  titulo: oferta.titulo,
-                  descripcion: oferta.descripcion,
-                  modalidad: oferta.modalidad,
-                  fechaInicio: oferta.fechaInicio,
-                  fechaFinal: oferta.fechaFinal,
-                  vacantes: oferta.vacantes,
-                },
-              })}
-              fullWidth
-              style={styles.actionButton}
-            />
 
-            {/* Botones contextuales según estado */}
-            {/* ACTIVA: Solo puede Cerrar */}
-            {oferta.estado === 'activa' && (
+          {/* ACTIVA: Editar + Cerrar en una fila */}
+          {oferta.estado === 'activa' && (
+            <View style={styles.actionsRow}>
+              <Button
+                variant="primary"
+                size="sm"
+                title="Editar"
+                onPress={() => navigation?.navigate('OfertaForm', {
+                  ofertaId: oferta.id || oferta.idOferta,
+                  ofertaData: {
+                    titulo: oferta.titulo,
+                    descripcion: oferta.descripcion,
+                    modalidad: oferta.modalidad,
+                    fechaInicio: oferta.fechaInicio,
+                    fechaFinal: oferta.fechaFinal,
+                    vacantes: oferta.vacantes,
+                  },
+                })}
+                style={styles.actionFlex}
+              />
               <Button
                 variant="outline"
-                title="Cerrar Oferta"
+                size="sm"
+                title="Cerrar"
                 loading={actionLoading === 'cerrar'}
                 disabled={actionLoading !== null}
                 onPress={handleCerrar}
-                fullWidth
-                style={styles.actionButton}
-                textStyle={styles.cerrarButtonText}
+                style={[styles.actionFlex, styles.orangeButton]}
+                textStyle={styles.orangeButtonText}
               />
-            )}
+            </View>
+          )}
 
-            {/* CERRADA: Puede Reabrir o Terminar */}
-            {oferta.estado === 'cerrada' && (
-              <>
-                <Button
-                  variant="primary"
-                  title="Reabrir Oferta"
-                  loading={actionLoading === 'reabrir'}
-                  disabled={actionLoading !== null}
-                  onPress={handleReabrir}
-                  fullWidth
-                  style={styles.actionButton}
-                />
-                <Button
-                  variant="ghost"
-                  title="Terminar Oferta"
-                  loading={actionLoading === 'terminar' || actionLoading === 'verificar'}
-                  disabled={actionLoading !== null}
-                  onPress={handleTerminar}
-                  fullWidth
-                  style={[styles.actionButton, styles.dangerButton]}
-                  textStyle={styles.dangerText}
-                />
-              </>
-            )}
+          {/* CERRADA: Editar + Reabrir + Terminar en una fila */}
+          {oferta.estado === 'cerrada' && (
+            <View style={styles.actionsRow}>
+              <Button
+                variant="primary"
+                size="sm"
+                title="Editar"
+                onPress={() => navigation?.navigate('OfertaForm', {
+                  ofertaId: oferta.id || oferta.idOferta,
+                  ofertaData: {
+                    titulo: oferta.titulo,
+                    descripcion: oferta.descripcion,
+                    modalidad: oferta.modalidad,
+                    fechaInicio: oferta.fechaInicio,
+                    fechaFinal: oferta.fechaFinal,
+                    vacantes: oferta.vacantes,
+                  },
+                })}
+                style={styles.actionFlex}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                title="Reabrir"
+                loading={actionLoading === 'reabrir'}
+                disabled={actionLoading !== null}
+                onPress={handleReabrir}
+                style={[styles.actionFlex, styles.greenButton]}
+                textStyle={styles.greenButtonText}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                title="Terminar"
+                loading={actionLoading === 'terminar' || actionLoading === 'verificar'}
+                disabled={actionLoading !== null}
+                onPress={handleTerminar}
+                style={[styles.actionFlex, styles.blueButton]}
+                textStyle={styles.blueButtonText}
+              />
+            </View>
+          )}
 
-            {/* TERMINADA: Sin botones de acción */}
+          {/* BORRADOR / TERMINADA: Solo Editar */}
+          {(oferta.estado === 'borrador' || oferta.estado === 'terminada') && (
+            <View style={styles.actionsRow}>
+              <Button
+                variant="primary"
+                size="sm"
+                title="Editar"
+                onPress={() => navigation?.navigate('OfertaForm', {
+                  ofertaId: oferta.id || oferta.idOferta,
+                  ofertaData: {
+                    titulo: oferta.titulo,
+                    descripcion: oferta.descripcion,
+                    modalidad: oferta.modalidad,
+                    fechaInicio: oferta.fechaInicio,
+                    fechaFinal: oferta.fechaFinal,
+                    vacantes: oferta.vacantes,
+                  },
+                })}
+                style={styles.actionFlex}
+              />
+            </View>
+          )}
+
+          {/* ELIMINAR: disponible en todos los estados */}
+          <View style={styles.deleteRow}>
+            <Button
+              variant="ghost"
+              size="sm"
+              title="Eliminar Oferta"
+              loading={actionLoading === 'eliminar' || actionLoading === 'verificar'}
+              disabled={actionLoading !== null}
+              onPress={handleDelete}
+              style={styles.deleteButton}
+              textStyle={styles.deleteButtonText}
+            />
           </View>
         </Card>
       </ScrollView>
@@ -539,19 +639,45 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: spacing.lg,
   },
-  actionsColumn: {
+  actionsRow: {
+    flexDirection: 'row',
     gap: spacing.sm,
   },
-  actionButton: {
-    marginBottom: spacing.sm,
+  actionFlex: {
+    flex: 1,
   },
-  cerrarButtonText: {
-    color: colors.error,
+  // Botón naranja - Cerrar
+  orangeButton: {
+    borderColor: colors.orange,
   },
-  dangerButton: {
+  orangeButtonText: {
+    color: colors.orange,
+  },
+  // Botón verde - Reabrir
+  greenButton: {
+    borderColor: colors.success,
+  },
+  greenButtonText: {
+    color: colors.success,
+  },
+  // Botón azul - Terminar
+  blueButton: {
+    borderColor: colors.info,
+  },
+  blueButtonText: {
+    color: colors.info,
+  },
+  // Botón eliminar
+  deleteRow: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  deleteButton: {
     borderColor: colors.error,
   },
-  dangerText: {
+  deleteButtonText: {
     color: colors.error,
   },
   errorIcon: {

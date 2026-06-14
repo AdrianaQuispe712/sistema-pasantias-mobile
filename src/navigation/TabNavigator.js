@@ -11,11 +11,15 @@
  * @module navigation/TabNavigator
  */
 
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography } from '../theme';
+import { getUnreadCount as getGerenteUnreadCount } from '../api/gerenteNotificaciones';
+import { getUnreadCount as getPasanteUnreadCount } from '../api/notificaciones';
+import { getUnreadCount as getJefeUnreadCount } from '../api/jefeNotificaciones';
 
 // Pasante Screens
 import OfertasPasanteScreen from '../screens/pasante/OfertasScreen';
@@ -32,6 +36,7 @@ import NotificacionesJefeScreen from '../screens/jefe/NotificacionesScreen';
 import DashboardGerenteScreen from '../screens/gerente/DashboardScreen';
 import OfertasGerenteScreen from '../screens/gerente/OfertasScreen';
 import InscripcionesScreen from '../screens/gerente/InscripcionesScreen';
+import EmpresaGerenteScreen from '../screens/gerente/EmpresaScreen';
 import NotificacionesGerenteScreen from '../screens/gerente/NotificacionesScreen';
 
 // Common
@@ -84,6 +89,25 @@ const getTabBarOptions = (route) => ({
 
 export const PasanteTabs = () => {
   console.warn('[TabNav] Rendering PASANTE tabs');
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const data = await getPasanteUnreadCount();
+      setUnreadCount(data?.unreadCount || 0);
+    } catch (err) {
+      // Silent fail
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchUnreadCount();
+      const interval = setInterval(fetchUnreadCount, 30000);
+      return () => clearInterval(interval);
+    }, [fetchUnreadCount])
+  );
+
   return (
   <Tab.Navigator screenOptions={getTabBarOptions}>
     <Tab.Screen
@@ -125,6 +149,7 @@ export const PasanteTabs = () => {
       options={{
         title: 'Alertas',
         headerTitle: 'Notificaciones',
+        tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
         tabBarIcon: ({ color, size }) => (
           <Ionicons name="notifications-outline" size={size} color={color} />
         ),
@@ -149,7 +174,27 @@ export const PasanteTabs = () => {
 // JEFE TABS
 // ============================================================
 
-export const JefeTabs = () => (
+export const JefeTabs = () => {
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const data = await getJefeUnreadCount();
+      setUnreadCount(data?.unreadCount || 0);
+    } catch (err) {
+      // Silent fail
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchUnreadCount();
+      const interval = setInterval(fetchUnreadCount, 30000);
+      return () => clearInterval(interval);
+    }, [fetchUnreadCount])
+  );
+
+  return (
   <Tab.Navigator screenOptions={getTabBarOptions}>
     <Tab.Screen
       name="ActividadesTab"
@@ -179,6 +224,7 @@ export const JefeTabs = () => (
       options={{
         title: 'Alertas',
         headerTitle: 'Notificaciones',
+        tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
         tabBarIcon: ({ color, size }) => (
           <Ionicons name="notifications-outline" size={size} color={color} />
         ),
@@ -196,7 +242,8 @@ export const JefeTabs = () => (
       }}
     />
   </Tab.Navigator>
-);
+  );
+};
 
 // ============================================================
 // GERENTE TABS
@@ -204,6 +251,27 @@ export const JefeTabs = () => (
 
 export const GerenteTabs = () => {
   console.warn('[TabNav] Rendering GERENTE tabs');
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const data = await getGerenteUnreadCount();
+      setUnreadCount(data?.unreadCount || 0);
+    } catch (err) {
+      // Silent fail — badge is non-critical
+    }
+  }, []);
+
+  // Refresh count when this tab group gains focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchUnreadCount();
+      // Poll every 30 seconds while focused
+      const interval = setInterval(fetchUnreadCount, 30000);
+      return () => clearInterval(interval);
+    }, [fetchUnreadCount])
+  );
+
   return (
   <Tab.Navigator screenOptions={getTabBarOptions}>
     <Tab.Screen
@@ -240,11 +308,23 @@ export const GerenteTabs = () => {
       }}
     />
     <Tab.Screen
+      name="EmpresaTab"
+      component={EmpresaGerenteScreen}
+      options={{
+        title: 'Empresa',
+        headerTitle: 'Información Empresarial',
+        tabBarIcon: ({ color, size }) => (
+          <Ionicons name="business-outline" size={size} color={color} />
+        ),
+      }}
+    />
+    <Tab.Screen
       name="NotificacionesTab"
       component={NotificacionesGerenteScreen}
       options={{
         title: 'Alertas',
         headerTitle: 'Notificaciones',
+        tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
         tabBarIcon: ({ color, size }) => (
           <Ionicons name="notifications-outline" size={size} color={color} />
         ),

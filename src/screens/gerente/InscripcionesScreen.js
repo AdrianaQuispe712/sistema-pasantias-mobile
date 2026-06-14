@@ -18,18 +18,36 @@ import {
   StyleSheet,
 } from 'react-native';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
-import { Header, Card, Badge, Button, EmptyState, LoadingSpinner } from '../../components/ui';
+import { Card, Badge, Button, EmptyState, LoadingSpinner } from '../../components/ui';
 import {
   getInscripciones,
   aprobar,
   rechazar,
 } from '../../api/gerenteInscripciones';
 
+// ─── Date formatting helper ───────────────────────────────
+const MESES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return '';
+  // Supports YYYY-MM-DD, YYYY-MM-DDTHH:mm:ss, YYYY-MM-DD HH:mm:ss
+  const parts = String(dateStr).split(/[/\-T ]/);
+  if (parts.length < 3) return dateStr;
+  const [year, month, day] = parts;
+  const m = parseInt(month, 10);
+  if (isNaN(m) || m < 1 || m > 12) return dateStr;
+  return `${parseInt(day, 10)} ${MESES[m - 1]} ${year}`;
+};
+
 const FILTER_TABS = [
   { key: 'todas', label: 'Todas' },
   { key: 'pendiente', label: 'Pendientes' },
   { key: 'aceptado', label: 'Aceptadas' },
   { key: 'rechazado', label: 'Rechazadas' },
+  { key: 'completado', label: 'Completadas' },
 ];
 
 /**
@@ -46,17 +64,20 @@ const getStatusBadge = (estado) => {
     case 'rechazado':
     case 'rechazada':
       return { variant: 'error', label: 'Rechazado' };
+    case 'completado':
+    case 'completada':
+      return { variant: 'info', label: 'Completado' };
     default:
       return { variant: 'neutral', label: estado || 'Sin estado' };
   }
 };
 
-const InscripcionesScreen = ({ navigation }) => {
+const InscripcionesScreen = ({ navigation, route }) => {
   const [inscripciones, setInscripciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
-  const [activeFilter, setActiveFilter] = useState('todas');
+  const [activeFilter, setActiveFilter] = useState(route?.params?.initialFilter || 'todas');
   const [actionLoading, setActionLoading] = useState(null);
 
   const fetchInscripciones = useCallback(async (isRefresh = false) => {
@@ -79,6 +100,13 @@ const InscripcionesScreen = ({ navigation }) => {
   useEffect(() => {
     fetchInscripciones();
   }, [fetchInscripciones]);
+
+  // Sync filter from route params (e.g., from notification tap)
+  useEffect(() => {
+    if (route?.params?.initialFilter) {
+      setActiveFilter(route.params.initialFilter);
+    }
+  }, [route?.params?.initialFilter]);
 
   useEffect(() => {
     const unsubscribe = navigation?.addListener?.('focus', () => {
@@ -205,7 +233,7 @@ const InscripcionesScreen = ({ navigation }) => {
             📋 {ofertaTitle}
           </Text>
           {item.fecha && (
-            <Text style={styles.dateText}>📅 {item.fecha}</Text>
+            <Text style={styles.dateText}>📅 {formatDate(item.fecha)}</Text>
           )}
         </View>
 
@@ -241,7 +269,6 @@ const InscripcionesScreen = ({ navigation }) => {
   if (loading && !refreshing) {
     return (
       <View style={styles.screen}>
-        <Header title="Inscripciones" subtitle="Gestión de inscripciones" />
         <LoadingSpinner fullScreen message="Cargando inscripciones..." />
       </View>
     );
@@ -252,7 +279,6 @@ const InscripcionesScreen = ({ navigation }) => {
   if (error && !refreshing && inscripciones.length === 0) {
     return (
       <View style={styles.screen}>
-        <Header title="Inscripciones" subtitle="Gestión de inscripciones" />
         <EmptyState
           icon={<Text style={styles.errorIcon}>⚠️</Text>}
           title="Error"
@@ -269,7 +295,6 @@ const InscripcionesScreen = ({ navigation }) => {
   if (!loading && inscripciones.length === 0) {
     return (
       <View style={styles.screen}>
-        <Header title="Inscripciones" subtitle="Gestión de inscripciones" />
         <EmptyState
           icon={<Text style={styles.emptyIcon}>📝</Text>}
           title="Sin inscripciones"
@@ -285,8 +310,6 @@ const InscripcionesScreen = ({ navigation }) => {
 
   return (
     <View style={styles.screen}>
-      <Header title="Inscripciones" subtitle="Gestión de inscripciones" />
-
       {renderFilterTabs()}
 
       {filteredInscripciones.length === 0 ? (

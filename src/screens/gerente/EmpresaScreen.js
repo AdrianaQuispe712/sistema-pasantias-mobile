@@ -10,7 +10,6 @@
  *   telefono: nullable|string
  *   email: nullable|email
  *   descripcion: nullable|string
- *   rubro: nullable|string
  *
  * @module screens/gerente/EmpresaScreen
  */
@@ -22,9 +21,12 @@ import {
   ScrollView,
   Alert,
   StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, typography, borderRadius } from '../../theme';
-import { Header, Card, Input, Button, EmptyState, LoadingSpinner } from '../../components/ui';
+import { Card, Input, Button, EmptyState, LoadingSpinner } from '../../components/ui';
 import { getEmpresa, updateEmpresa } from '../../api/gerenteEmpresa';
 
 const EmpresaScreen = ({ navigation }) => {
@@ -34,7 +36,6 @@ const EmpresaScreen = ({ navigation }) => {
   const [telefono, setTelefono] = useState('');
   const [email, setEmail] = useState('');
   const [descripcion, setDescripcion] = useState('');
-  const [rubro, setRubro] = useState('');
 
   // ─── UI state ───────────────────────────────────────────
   const [loading, setLoading] = useState(true);
@@ -57,7 +58,6 @@ const EmpresaScreen = ({ navigation }) => {
       setTelefono(data.telefono || '');
       setEmail(data.email || '');
       setDescripcion(data.descripcion || '');
-      setRubro(data.rubro || '');
     } catch (err) {
       console.error('Error fetching empresa:', err);
       setError('No se pudieron cargar los datos de la empresa');
@@ -103,14 +103,16 @@ const EmpresaScreen = ({ navigation }) => {
         telefono: telefono.trim() || null,
         email: email.trim() || null,
         descripcion: descripcion.trim() || null,
-        rubro: rubro.trim() || null,
       };
 
       await updateEmpresa(payload);
       setEditing(false);
       Alert.alert('Éxito', 'Empresa actualizada correctamente');
     } catch (err) {
-      console.error('Error updating empresa:', err);
+      console.error('Error updating empresa:', {
+        status: err?.response?.status,
+        data: err?.response?.data,
+      });
       const message =
         err?.response?.data?.message ||
         err?.message ||
@@ -133,12 +135,6 @@ const EmpresaScreen = ({ navigation }) => {
   if (loading) {
     return (
       <View style={styles.screen}>
-        <Header
-          title="Empresa"
-          subtitle="Información empresarial"
-          leftIcon={<Text style={styles.backIcon}>←</Text>}
-          onLeftPress={() => navigation?.goBack()}
-        />
         <LoadingSpinner fullScreen message="Cargando empresa..." />
       </View>
     );
@@ -148,12 +144,6 @@ const EmpresaScreen = ({ navigation }) => {
   if (error) {
     return (
       <View style={styles.screen}>
-        <Header
-          title="Empresa"
-          subtitle="Información empresarial"
-          leftIcon={<Text style={styles.backIcon}>←</Text>}
-          onLeftPress={() => navigation?.goBack()}
-        />
         <EmptyState
           icon={<Text style={styles.errorIcon}>⚠️</Text>}
           title="Error"
@@ -168,13 +158,6 @@ const EmpresaScreen = ({ navigation }) => {
   // ─── Main render ────────────────────────────────────────
   return (
     <View style={styles.screen}>
-      <Header
-        title="Empresa"
-        subtitle={editing ? 'Editando datos' : nombre || 'Información empresarial'}
-        leftIcon={<Text style={styles.backIcon}>←</Text>}
-        onLeftPress={() => navigation?.goBack()}
-      />
-
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -230,15 +213,6 @@ const EmpresaScreen = ({ navigation }) => {
             keyboardType="email-address"
           />
 
-          {/* Rubro */}
-          <Input
-            label="Rubro"
-            placeholder="Ej: Tecnología, Educación..."
-            value={rubro}
-            onChangeText={setRubro}
-            editable={editing}
-          />
-
           {/* Descripción */}
           <Input
             label="Descripción"
@@ -253,24 +227,38 @@ const EmpresaScreen = ({ navigation }) => {
         {/* ── Action Buttons ── */}
         <View style={styles.actions}>
           {editing ? (
-            <>
-              <Button
-                variant="primary"
-                title="Guardar Cambios"
-                loading={submitting}
-                disabled={submitting}
+            <View style={styles.actionsRow}>
+              <TouchableOpacity
+                style={styles.gradientButtonWrapper}
                 onPress={handleSubmit}
-                fullWidth
-                style={styles.submitButton}
-              />
-              <Button
-                variant="outline"
-                title="Cancelar"
+                disabled={submitting}
+                activeOpacity={0.8}
+              >
+                <LinearGradient
+                  colors={[colors.orange, colors.amber]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.gradientButton}
+                >
+                  {submitting ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <Text style={styles.gradientButtonText}>Guardar</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.cancelButtonWrapper}
                 onPress={handleCancel}
                 disabled={submitting}
-                fullWidth
-              />
-            </>
+                activeOpacity={0.8}
+              >
+                <View style={styles.cancelButton}>
+                  <Text style={styles.cancelButtonText}>Cancelar</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
           ) : (
             <Button
               variant="primary"
@@ -307,7 +295,52 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   actions: {
-    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+  },
+  gradientButtonWrapper: {
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+  },
+  gradientButton: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    minHeight: 36,
+    minWidth: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  gradientButtonText: {
+    color: colors.white,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
+  },
+  cancelButtonWrapper: {
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+  },
+  cancelButton: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    minHeight: 36,
+    minWidth: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.white,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderRadius: borderRadius.md,
+  },
+  cancelButtonText: {
+    color: colors.primary,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
   },
   submitButton: {
     marginBottom: spacing.sm,

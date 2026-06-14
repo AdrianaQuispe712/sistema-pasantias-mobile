@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, borderRadius, typography, shadows } from '../../theme';
-import { Header, Card, LoadingSpinner, EmptyState } from '../../components/ui';
+import { Card, LoadingSpinner, EmptyState } from '../../components/ui';
 import { getDashboard } from '../../api/gerenteDashboard';
 
 const DashboardScreen = () => {
@@ -52,7 +52,6 @@ const DashboardScreen = () => {
   if (loading && !refreshing) {
     return (
       <View style={styles.container}>
-        <Header title="Dashboard" subtitle={user?.nombre ? `Hola, ${user.nombre}` : 'Panel de control'} />
         <LoadingSpinner fullScreen message="Cargando estadísticas..." />
       </View>
     );
@@ -61,7 +60,6 @@ const DashboardScreen = () => {
   if (error && !refreshing) {
     return (
       <View style={styles.container}>
-        <Header title="Dashboard" subtitle="Panel de control" />
         <EmptyState
           icon={<Text style={styles.emptyIcon}>⚠️</Text>}
           title="Error al cargar"
@@ -75,11 +73,6 @@ const DashboardScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Header
-        title="Dashboard"
-        subtitle={user?.nombre ? `Hola, ${user.nombre}` : 'Panel de control'}
-      />
-
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -97,7 +90,7 @@ const DashboardScreen = () => {
         <View style={styles.statsGrid}>
           <StatCard label="Total" value={stats.totalOfertas || 0} color={colors.primary} />
           <StatCard label="Activas" value={stats.ofertasActivas || 0} color={colors.success} />
-          <StatCard label="Cerradas" value={stats.ofertasCerradas || 0} color={colors.warning} />
+          <StatCard label="Cerradas" value={stats.ofertasCerradas || 0} color={colors.orange} />
           <StatCard label="Terminadas" value={stats.ofertasTerminadas || 0} color={colors.grayMedium} />
         </View>
 
