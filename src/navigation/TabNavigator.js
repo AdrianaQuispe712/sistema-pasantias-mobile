@@ -25,6 +25,7 @@ import { getMias as getJefeMias, getCompletadas as getJefeCompletadas } from '..
 
 const STORAGE_KEY_COMPLETED = '@jefe_completed_activities';
 const STORAGE_KEY_DISMISSED = '@jefe_dismissed_notifs';
+const STORAGE_KEY_VIEWED = '@jefe_viewed_delayed';
 
 // Pasante Screens
 import OfertasPasanteScreen from '../screens/pasante/OfertasScreen';
@@ -199,14 +200,16 @@ export const JefeTabs = () => {
   const fetchUnreadCount = useCallback(async () => {
     try {
       // Fetch all sources in parallel
-      const [conversaciones, actividadesMias, actividadesCompletadas, dismissedIds] = await Promise.all([
+      const [conversaciones, actividadesMias, actividadesCompletadas, dismissedIds, viewedIds] = await Promise.all([
         getJefeConversaciones().catch(() => ({ conversaciones: [] })),
         getJefeMias().catch(() => ({ data: [] })),
         getJefeCompletadas().catch(() => ({ data: [] })),
         AsyncStorage.getItem(STORAGE_KEY_DISMISSED).then((s) => (s ? JSON.parse(s) : [])).catch(() => []),
+        AsyncStorage.getItem(STORAGE_KEY_VIEWED).then((s) => (s ? JSON.parse(s) : [])).catch(() => []),
       ]);
 
       const dismissedSet = new Set(dismissedIds);
+      const viewedSet = new Set(viewedIds);
       const convs = conversaciones?.conversaciones || [];
       const mias = Array.isArray(actividadesMias) ? actividadesMias : actividadesMias?.data || [];
       const completadas = Array.isArray(actividadesCompletadas)
@@ -215,13 +218,26 @@ export const JefeTabs = () => {
 
       let count = 0;
 
-      // 1. Unread messages (exclude dismissed)
-      if (!dismissedSet.has('unread-messages')) {
-        count += convs.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+      // 1. Unread messages — por conversación
+      for (const conv of convs) {
+        const unread = conv.unread_count || 0;
+        if (unread === 0) continue;
+        const msgId = `msg-${conv.id}`;
+        if (dismissedSet.has(msgId)) {
+          // Ya descartada — ¿hay mensajes NUEVOS?
+          let lastSeenCount = 0;
+          try {
+            const stored = await AsyncStorage.getItem(`@jefe_msg_seen_${conv.id}`);
+            if (stored) lastSeenCount = parseInt(stored, 10) || 0;
+          } catch {}
+          if (unread <= lastSeenCount) continue; // sin novedades
+          count += unread - lastSeenCount; // solo los nuevos
+        } else {
+          count += unread;
+        }
       }
 
-      // 2. Delayed activities (never dismissed, always counted — even if completed)
-      // Uses local date parsing to avoid timezone bugs
+      // 2. Delayed activities — excluir las ya vistas
       const parseLocalDate = (dateStr) => {
         if (!dateStr) return null;
         const dateOnly = String(dateStr).split('T')[0].split(' ')[0];
@@ -231,11 +247,17 @@ export const JefeTabs = () => {
         return new Date(year, month - 1, day, 23, 59, 59);
       };
       const now = new Date();
-      count += mias.filter((a) => {
+      const delayed = mias.filter((a) => {
         const fechaLimite = a.fecha_limite || a.fechaLimite;
         if (!fechaLimite) return false;
         return parseLocalDate(fechaLimite) < now;
-      }).length;
+      });
+      for (const act of delayed) {
+        const actId = act.id || act.idActividad;
+        if (!viewedSet.has(`delayed-${actId}`)) {
+          count++;
+        }
+      }
 
       // 3. Newly completed activities (exclude dismissed)
       const currentCompletedIds = completadas.map((a) => String(a.id || a.idActividad)).sort();
@@ -247,8 +269,8 @@ export const JefeTabs = () => {
       const prevSet = new Set(prevCompletedIds);
       count += completadas.filter((a) => {
         const actId = String(a.id || a.idActividad);
-        if (prevSet.has(actId)) return false; // not new
-        if (dismissedSet.has(`completed-${actId}`)) return false; // dismissed
+        if (prevSet.has(actId)) return false;
+        if (dismissedSet.has(`completed-${actId}`)) return false;
         return true;
       }).length;
 

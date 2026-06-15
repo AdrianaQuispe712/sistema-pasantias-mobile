@@ -19,6 +19,7 @@ import {
   RefreshControl,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { Card, Badge, EmptyState, LoadingSpinner } from '../../components/ui';
 import {
@@ -50,19 +51,19 @@ const formatDate = (dateStr) => {
  */
 const NOTIF_CONFIG = {
   nueva_inscripcion: {
-    icon: '📝',
+    icon: 'create',
     badge: { variant: 'success', label: 'Inscripción' },
     target: 'InscripcionesTab',
     params: { initialFilter: 'pendiente' },
   },
   actividad_completada: {
-    icon: '📋',
+    icon: 'clipboard',
     badge: { variant: 'info', label: 'Actividad' },
     target: 'DashboardTab',
   },
 };
 
-const DEFAULT_CONFIG = { icon: '📌', badge: { variant: 'neutral', label: 'General' }, target: null };
+const DEFAULT_CONFIG = { icon: 'pin', badge: { variant: 'neutral', label: 'General' }, target: null };
 
 const NotificacionesScreen = ({ navigation }) => {
   const [notificaciones, setNotificaciones] = useState([]);
@@ -162,7 +163,7 @@ const NotificacionesScreen = ({ navigation }) => {
         <View style={styles.notifRow}>
           {/* Icon */}
           <View style={styles.iconContainer}>
-            <Text style={styles.notifIcon}>{config.icon}</Text>
+            <Ionicons name={config.icon} size={20} color={colors.grayMedium} />
             {!isLeida && <View style={styles.unreadDot} />}
           </View>
 
@@ -207,7 +208,7 @@ const NotificacionesScreen = ({ navigation }) => {
     return (
       <View style={styles.screen}>
         <EmptyState
-          icon={<Text style={styles.errorIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error"
           subtitle={error}
           actionLabel="Reintentar"
@@ -223,7 +224,7 @@ const NotificacionesScreen = ({ navigation }) => {
     return (
       <View style={styles.screen}>
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>🔔</Text>}
+          icon={<Ionicons name="notifications-outline" size={48} color={colors.grayMedium} />}
           title="Sin notificaciones"
           subtitle="No tiene notificaciones nuevas."
           actionLabel="Actualizar"

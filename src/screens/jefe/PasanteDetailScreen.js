@@ -14,6 +14,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import {
   Header,
@@ -30,13 +31,26 @@ import { getPasante } from '../../api/jefePasantes';
  * Inscripciones: pendiente, aceptado, rechazado, completado
  * Pasantes: pendiente, aceptado, completado, abandono, rechazado
  * Actividades: asignada, en_progreso, completada
+ *
+ * REGLA para actividades: Si tiene fecha_limite y ya venció → ROJO.
+ * Si no: en_progreso/asignada → naranja.
  * Nota: el backend retorna 'activo' hardcodeado — mapeamos a 'aceptado'
  */
-const getStatusBadge = (estado) => {
+const getStatusBadge = (estado, fechaLimite) => {
+  // ¿Actividad vencida?
+  if (fechaLimite) {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const limite = new Date(fechaLimite);
+    limite.setHours(0, 0, 0, 0);
+    if (limite < hoy) {
+      return { variant: 'error', label: estado === 'completada' ? 'Completada' : 'En Progreso' };
+    }
+  }
+
   switch (estado) {
     case 'aceptado':
     case 'aceptada':
-    case 'activo':   // backend hardcodea 'activo' para inscripciones aceptadas
       return { variant: 'success', label: 'Aceptado' };
     case 'pendiente':
     case 'pending':
@@ -46,13 +60,13 @@ const getStatusBadge = (estado) => {
       return { variant: 'error', label: 'Rechazado' };
     case 'completado':
     case 'completada':
-      return { variant: 'info', label: 'Completado' };
+      return { variant: 'success', label: 'Completado' };
     case 'abandono':
       return { variant: 'error', label: 'Abandono' };
     case 'en_progreso':
     case 'en progreso':
     case 'asignada':
-      return { variant: 'warning', label: 'En Progreso' };
+      return { variant: 'orange', label: 'En Progreso' };
     default:
       return { variant: 'neutral', label: estado || 'Sin estado' };
   }
@@ -121,7 +135,7 @@ const PasanteDetailScreen = ({ route, navigation }) => {
           onLeftPress={() => navigation?.goBack()}
         />
         <EmptyState
-          icon={<Text style={styles.errorIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error"
           subtitle={error || 'Pasante no encontrado'}
           actionLabel="Reintentar"
@@ -198,7 +212,7 @@ const PasanteDetailScreen = ({ route, navigation }) => {
           <Text style={styles.sectionTitle}>Actividades Asignadas</Text>
           {actividades.length > 0 ? (
             actividades.map((actividad, index) => {
-              const actBadge = getStatusBadge(actividad.estado);
+              const actBadge = getStatusBadge(actividad.estado, actividad.fecha_limite);
               return (
                 <View key={actividad.id || index} style={styles.listItem}>
                   <View style={styles.listItemContent}>
@@ -206,9 +220,10 @@ const PasanteDetailScreen = ({ route, navigation }) => {
                       {actividad.titulo || actividad.nombre || 'Actividad'}
                     </Text>
                     {actividad.fecha_limite && (
-                      <Text style={styles.listItemSubtitle}>
-                        📅 {actividad.fecha_limite}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Ionicons name="calendar-outline" size={14} color={colors.textLight} />
+                        <Text style={styles.listItemSubtitle}> {actividad.fecha_limite}</Text>
+                      </View>
                     )}
                   </View>
                   <Badge variant={actBadge.variant} label={actBadge.label} size="sm" />

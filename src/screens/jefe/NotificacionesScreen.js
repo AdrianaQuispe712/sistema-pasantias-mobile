@@ -20,6 +20,7 @@ import {
   RefreshControl,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { Card, Badge, EmptyState, LoadingSpinner } from '../../components/ui';
@@ -28,6 +29,7 @@ import { getMias, getCompletadas } from '../../api/jefeActividades';
 
 const STORAGE_KEY_COMPLETED = '@jefe_completed_activities';
 const STORAGE_KEY_DISMISSED = '@jefe_dismissed_notifs';
+const STORAGE_KEY_VIEWED = '@jefe_viewed_delayed';
 
 /**
  * Formatea fecha ISO a dd/mm/aaaa
@@ -73,6 +75,19 @@ const isActivityDelayed = (actividad) => {
   const now = new Date();
   const limite = parseLocalDate(fechaLimite);
   return limite < now;
+};
+
+const getNotifIconColor = (tipo) => {
+  switch (tipo) {
+    case 'mensajes_sin_leer':
+      return colors.info;
+    case 'actividad_atrasada':
+      return colors.error;
+    case 'actividad_completada':
+      return colors.success;
+    default:
+      return colors.grayMedium;
+  }
 };
 
 /**
@@ -134,17 +149,33 @@ const NotificacionesScreen = ({ navigation }) => {
       const now = new Date();
       const notifs = [];
 
-      // ─── 1. Unread messages (dismissable on tap) ─────────
-      const totalUnread = convs.reduce((sum, c) => sum + (c.unread_count || 0), 0);
-      if (totalUnread > 0 && !dismissedSet.has('unread-messages')) {
-        const convsWithUnread = convs.filter((c) => c.unread_count > 0);
+      // ─── 1. Unread messages — una notificación por conversación ──
+      for (const conv of convs) {
+        const unread = conv.unread_count || 0;
+        if (unread === 0) continue;
+
+        const pasanteName = conv.pasante?.user
+          ? `${conv.pasante.user.nombre} ${conv.pasante.user.apellido}`
+          : 'Pasante';
+        const msgId = `msg-${conv.id}`;
+
+        // Si ya fue descartada y no hay mensajes NUEVOS, no la mostramos
+        // Guardamos el último unread_count visto para saber si hay nuevos
+        let lastSeenCount = 0;
+        try {
+          const stored = await AsyncStorage.getItem(`@jefe_msg_seen_${conv.id}`);
+          if (stored) lastSeenCount = parseInt(stored, 10) || 0;
+        } catch {}
+
+        if (dismissedSet.has(msgId) && unread <= lastSeenCount) continue;
+
         notifs.push({
-          id: 'unread-messages',
+          id: msgId,
           tipo: 'mensajes_sin_leer',
-          icon: '💬',
-          titulo: 'Tienes mensajes sin leer',
-          descripcion: `${totalUnread} mensaje${totalUnread > 1 ? 's' : ''} sin leer en ${convsWithUnread.length} conversación${convsWithUnread.length > 1 ? 'es' : ''}`,
-          badge: { variant: 'info', label: `${totalUnread} nuevo${totalUnread > 1 ? 's' : ''}` },
+          icon: 'chatbubbles',
+          titulo: `Mensajes de ${pasanteName}`,
+          descripcion: `${unread} mensaje${unread > 1 ? 's' : ''} sin leer`,
+          badge: { variant: 'info', label: `${unread}` },
           target: 'Mensajes',
           timestamp: now.toISOString(),
           dismissable: true,
@@ -162,7 +193,7 @@ const NotificacionesScreen = ({ navigation }) => {
         notifs.push({
           id: `delayed-${actId}`,
           tipo: 'actividad_atrasada',
-          icon: '🔴',
+          icon: 'ellipse',
           titulo: `Actividad atrasada: ${titulo}`,
           descripcion: pasante ? `Asignada a ${pasante} — venció ${formatDate(fechaLimite)}` : `Venció ${formatDate(fechaLimite)}`,
           badge: { variant: 'error', label: 'Atraso' },
@@ -198,7 +229,7 @@ const NotificacionesScreen = ({ navigation }) => {
           notifs.push({
             id: notifId,
             tipo: 'actividad_completada',
-            icon: '✅',
+            icon: 'checkmark-circle',
             titulo: 'Se marcó una actividad como completada',
             descripcion: pasante ? `${titulo} — ${pasante}` : titulo,
             badge: { variant: 'error', label: 'Completada' },
@@ -239,14 +270,33 @@ const NotificacionesScreen = ({ navigation }) => {
 
   /**
    * Tocar una notificación:
-   * - If dismissable: save to dismissed → removes from list
-   * - If NOT dismissable (delayed): just navigate, never dismiss
+   * - Mensajes / Completadas: se descartan (desaparecen de la lista)
+   * - Atrasadas: se quedan visibles, pero se marcan como "vistas" para bajar el badge
    */
   const handlePress = async (notificacion) => {
-    // Dismiss first (if allowed)
     if (notificacion.dismissable) {
+      // Guardar en dismiss + remover de la lista
       await saveDismissed(notificacion.id);
+
+      // Para mensajes: guardar el unread_count actual como "visto"
+      if (notificacion.tipo === 'mensajes_sin_leer') {
+        const convId = notificacion.id.replace('msg-', '');
+        const count = notificacion.badge?.label || '0';
+        try {
+          await AsyncStorage.setItem(`@jefe_msg_seen_${convId}`, String(count));
+        } catch {}
+      }
+
       setNotificaciones((prev) => prev.filter((n) => n.id !== notificacion.id));
+    } else {
+      // Atrasada: marcar como vista (para el badge) pero no remover
+      try {
+        const current = JSON.parse(await AsyncStorage.getItem(STORAGE_KEY_VIEWED) || '[]');
+        if (!current.includes(notificacion.id)) {
+          current.push(notificacion.id);
+          await AsyncStorage.setItem(STORAGE_KEY_VIEWED, JSON.stringify(current));
+        }
+      } catch {}
     }
 
     // Navigate to target
@@ -267,7 +317,7 @@ const NotificacionesScreen = ({ navigation }) => {
         <View style={styles.notifRow}>
           {/* Icon */}
           <View style={styles.iconContainer}>
-            <Text style={styles.notifIcon}>{item.icon}</Text>
+            <Ionicons name={item.icon} size={22} color={getNotifIconColor(item.tipo)} />
           </View>
 
           {/* Content */}
@@ -282,10 +332,6 @@ const NotificacionesScreen = ({ navigation }) => {
             <Text style={styles.notifMessage} numberOfLines={2}>
               {item.descripcion}
             </Text>
-
-            {!item.dismissable && (
-              <Text style={styles.persistentHint}>Se mantiene mientras siga atrasada</Text>
-            )}
           </View>
         </View>
       </Card>
@@ -308,7 +354,7 @@ const NotificacionesScreen = ({ navigation }) => {
     return (
       <View style={styles.screen}>
         <EmptyState
-          icon={<Text style={styles.errorIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error"
           subtitle={error}
           actionLabel="Reintentar"
@@ -324,7 +370,7 @@ const NotificacionesScreen = ({ navigation }) => {
     return (
       <View style={styles.screen}>
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>🔔</Text>}
+          icon={<Ionicons name="notifications-outline" size={48} color={colors.grayMedium} />}
           title="Sin notificaciones"
           subtitle="No tienes notificaciones nuevas."
           actionLabel="Actualizar"

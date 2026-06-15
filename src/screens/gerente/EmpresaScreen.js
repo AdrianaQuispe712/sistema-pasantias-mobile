@@ -24,6 +24,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { Card, Input, Button, EmptyState, LoadingSpinner } from '../../components/ui';
@@ -145,7 +146,7 @@ const EmpresaScreen = ({ navigation }) => {
     return (
       <View style={styles.screen}>
         <EmptyState
-          icon={<Text style={styles.errorIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error"
           subtitle={error}
           actionLabel="Reintentar"

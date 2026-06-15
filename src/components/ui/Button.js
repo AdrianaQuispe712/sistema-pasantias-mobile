@@ -1,7 +1,7 @@
 /**
  * Button - Componente reutilizable de botón
  * 
- * Variantes: primary, secondary, outline, ghost
+ * Variantes: primary, secondary, outline, ghost, orange
  * Tamaños: sm, md, lg
  * Soporte para loading, disabled, iconos izquierda/derecha
  * 
@@ -18,7 +18,7 @@ import {
 import { colors, spacing, borderRadius, typography } from '../../theme';
 
 /**
- * @typedef {'primary' | 'secondary' | 'outline' | 'ghost'} ButtonVariant
+ * @typedef {'primary' | 'secondary' | 'outline' | 'ghost' | 'orange'} ButtonVariant
  * @typedef {'sm' | 'md' | 'lg'} ButtonSize
  * 
  * @param {object} props
@@ -68,6 +68,9 @@ const Button = ({
       case 'ghost':
         base.push(styles.ghost);
         break;
+      case 'orange':
+        base.push(styles.orange);
+        break;
       default:
         base.push(styles.primary);
     }
@@ -99,6 +102,9 @@ const Button = ({
       case 'ghost':
         base.push(styles.textGhost);
         break;
+      case 'orange':
+        base.push(styles.textOrange);
+        break;
       default:
         base.push(styles.textPrimary);
     }
@@ -115,6 +121,7 @@ const Button = ({
     switch (variant) {
       case 'primary':
       case 'secondary':
+      case 'orange':
         return colors.white;
       case 'outline':
       case 'ghost':
@@ -212,6 +219,9 @@ const styles = StyleSheet.create({
   ghost: {
     backgroundColor: 'transparent',
   },
+  orange: {
+    backgroundColor: colors.orange,
+  },
 
   // Disabled
   disabled: {
@@ -244,6 +254,9 @@ const styles = StyleSheet.create({
   },
   textGhost: {
     color: colors.primary,
+  },
+  textOrange: {
+    color: colors.textOnPrimary,
   },
   textDisabled: {
     color: colors.grayLight,

@@ -17,6 +17,7 @@ import {
   Alert,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import {
   Header,
@@ -36,15 +37,32 @@ import {
 import { getObservaciones } from '../../api/jefeObservaciones';
 
 /**
- * Badge variant según estado
+ * Badge variant según estado y fecha límite.
+ *
+ * REGLA: Si la actividad ya pasó su fecha límite, se pinta ROJO (atraso)
+ * sin importar el estado. Si no, colores normales:
+ * - en_progreso/asignada → naranja
+ * - completada → verde
+ * - disponible → azul
  */
-const getStatusBadge = (estado) => {
+const getStatusBadge = (estado, fechaLimite) => {
+  // ¿Ya venció?
+  if (fechaLimite) {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const limite = new Date(fechaLimite);
+    limite.setHours(0, 0, 0, 0);
+    if (limite < hoy) {
+      return { variant: 'error', label: estado === 'completada' ? 'Completada' : estado === 'disponible' ? 'Disponible' : 'En Progreso' };
+    }
+  }
+
   switch (estado) {
     case 'disponible':
       return { variant: 'info', label: 'Disponible' };
     case 'asignada':
     case 'en_progreso':
-      return { variant: 'warning', label: 'En Progreso' };
+      return { variant: 'orange', label: 'En Progreso' };
     case 'completada':
       return { variant: 'success', label: 'Completada' };
     default:
@@ -191,7 +209,7 @@ const ActividadDetailScreen = ({ route, navigation }) => {
     return (
       <View style={styles.screen}>
         <EmptyState
-          icon={<Text style={styles.errorIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error"
           subtitle={error || 'Actividad no encontrada'}
           actionLabel="Reintentar"
@@ -201,7 +219,7 @@ const ActividadDetailScreen = ({ route, navigation }) => {
     );
   }
 
-  const badge = getStatusBadge(actividad.estado);
+  const badge = getStatusBadge(actividad.estado, actividad.fecha_limite || actividad.fechaLimite);
   const isCompleted = actividad.estado === 'completada';
   const isDisponible = actividad.estado === 'disponible' || actividad.estado === 'en_espera';
   const isAssigned = !isDisponible && (actividad.pasante_nombre || actividad.pasante);

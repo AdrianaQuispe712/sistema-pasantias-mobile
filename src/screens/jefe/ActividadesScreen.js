@@ -18,6 +18,7 @@ import {
   Alert,
   Modal,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { Card, Badge, Button, Avatar, EmptyState, LoadingSpinner } from '../../components/ui';
 import {
@@ -36,15 +37,32 @@ const TABS = [
 ];
 
 /**
- * Obtiene el badge variant según el estado de la actividad
+ * Obtiene el badge variant y label según el estado de la actividad y su fecha límite.
+ *
+ * REGLA: Si la actividad ya pasó su fecha límite, se pinta ROJO (atraso)
+ * sin importar el estado. Si no, colores normales:
+ * - en_progreso/asignada → naranja
+ * - completada → verde
+ * - disponible → azul
  */
-const getStatusBadge = (estado) => {
+const getStatusBadge = (estado, fechaLimite) => {
+  // ¿Ya venció?
+  if (fechaLimite) {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const limite = new Date(fechaLimite);
+    limite.setHours(0, 0, 0, 0);
+    if (limite < hoy) {
+      return { variant: 'error', label: estado === 'completada' ? 'Completada' : estado === 'disponible' ? 'Disponible' : 'En Progreso' };
+    }
+  }
+
   switch (estado) {
     case 'disponible':
       return { variant: 'info', label: 'Disponible' };
     case 'asignada':
     case 'en_progreso':
-      return { variant: 'warning', label: 'En Progreso' };
+      return { variant: 'orange', label: 'En Progreso' };
     case 'completada':
       return { variant: 'success', label: 'Completada' };
     default:
@@ -236,7 +254,7 @@ const ActividadesScreen = ({ navigation }) => {
   );
 
   const renderActividadItem = ({ item }) => {
-    const badge = getStatusBadge(item.estado);
+    const badge = getStatusBadge(item.estado, item.fecha_limite || item.fechaLimite);
     const isActionLoading = actionLoading === item.id;
 
     return (
@@ -261,14 +279,16 @@ const ActividadesScreen = ({ navigation }) => {
 
         <View style={styles.activityMeta}>
           {item.fecha_limite || item.fechaLimite ? (
-            <Text style={styles.metaText}>
-              📅 {item.fecha_limite || item.fechaLimite}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="calendar-outline" size={14} color={colors.grayMedium} />
+              <Text style={styles.metaText}> {item.fecha_limite || item.fechaLimite}</Text>
+            </View>
           ) : null}
           {item.pasante_nombre || item.pasanteNombre ? (
-            <Text style={styles.metaText}>
-              👤 {item.pasante_nombre || item.pasanteNombre}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="person-outline" size={14} color={colors.grayMedium} />
+              <Text style={styles.metaText}> {item.pasante_nombre || item.pasanteNombre}</Text>
+            </View>
           ) : null}
         </View>
 
@@ -315,7 +335,7 @@ const ActividadesScreen = ({ navigation }) => {
     return (
       <View style={styles.screen}>
         <EmptyState
-          icon={<Text style={styles.errorIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error"
           subtitle={error}
           actionLabel="Reintentar"
@@ -332,7 +352,7 @@ const ActividadesScreen = ({ navigation }) => {
 
       {actividades.length === 0 ? (
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>📋</Text>}
+          icon={<Ionicons name="clipboard-outline" size={48} color={colors.grayMedium} />}
           title="Sin actividades"
           subtitle={
             activeTab === 'disponibles'

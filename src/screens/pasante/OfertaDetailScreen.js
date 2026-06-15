@@ -19,6 +19,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, shadows } from '../../theme';
 import { Button, Header, Badge, Card, LoadingSpinner, EmptyState } from '../../components/ui';
 import { getOferta, postularse } from '../../api/ofertas';
@@ -128,7 +129,7 @@ const OfertaDetailScreen = () => {
       <View style={styles.container}>
         <Header title="Detalle de Oferta" />
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error al cargar"
           subtitle={error}
           actionLabel="Reintentar"
@@ -144,7 +145,7 @@ const OfertaDetailScreen = () => {
       <View style={styles.container}>
         <Header title="Detalle de Oferta" />
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>🔍</Text>}
+          icon={<Ionicons name="search-outline" size={48} color={colors.grayMedium} />}
           title="Oferta no encontrada"
           subtitle="La oferta que buscas no existe o fue removida."
           actionLabel="Volver"
@@ -181,7 +182,7 @@ const OfertaDetailScreen = () => {
               </Text>
               {oferta.empresa?.direccion && (
                 <Text style={styles.empresaDireccion}>
-                  📍 {oferta.empresa.direccion}
+                  <Ionicons name="location-outline" size={14} color={colors.textSecondary} /> {oferta.empresa.direccion}
                 </Text>
               )}
             </View>

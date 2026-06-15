@@ -77,7 +77,7 @@ export const colors = {
   aceptado: '#10B981',
   pendiente: '#F59E0B',
   rechazado: '#EF4444',
-  completado: '#3B82F6',
+  completado: '#10B981',
   abandono: '#EF4444',
   
   // ============================================

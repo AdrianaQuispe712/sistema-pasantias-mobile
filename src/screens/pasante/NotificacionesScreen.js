@@ -19,6 +19,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, shadows } from '../../theme';
 import { Card, Badge, EmptyState, LoadingSpinner } from '../../components/ui';
 import { getNotificaciones, markAsRead } from '../../api/notificaciones';
@@ -93,22 +94,47 @@ const NotificacionesScreen = () => {
     switch (tipo?.toLowerCase()) {
       case 'asignacion':
       case 'asignación':
-        return '📋';
+        return 'clipboard-outline';
       case 'completada':
       case 'aprobada':
-        return '✅';
+        return 'checkmark-circle-outline';
       case 'rechazada':
-        return '❌';
+        return 'close-circle-outline';
       case 'recordatorio':
-        return '⏰';
+        return 'alarm-outline';
       case 'sistema':
-        return 'ℹ️';
+        return 'information-circle-outline';
       case 'mensaje':
-        return '💬';
+        return 'chatbubbles-outline';
       case 'alerta':
-        return '⚠️';
+        return 'alert-circle-outline';
       default:
-        return '🔔';
+        return 'notifications-outline';
+    }
+  }, []);
+
+  /**
+   * Obtiene el badge variant según el tipo
+   */
+  const getNotificationIconColor = useCallback((tipo) => {
+    switch (tipo?.toLowerCase()) {
+      case 'completada':
+      case 'aprobada':
+        return colors.success;
+      case 'rechazada':
+        return colors.error;
+      case 'recordatorio':
+      case 'alerta':
+        return colors.warning;
+      case 'asignacion':
+      case 'asignación':
+        return colors.info;
+      case 'sistema':
+        return colors.info;
+      case 'mensaje':
+        return colors.secondary;
+      default:
+        return colors.grayMedium;
     }
   }, []);
 
@@ -151,9 +177,11 @@ const NotificacionesScreen = () => {
         >
           {/* Icono de la notificación */}
           <View style={styles.notifIconContainer}>
-            <Text style={styles.notifIcon}>
-              {getNotificationIcon(notif.tipo || notif.type)}
-            </Text>
+            <Ionicons
+              name={getNotificationIcon(notif.tipo || notif.type)}
+              size={22}
+              color={getNotificationIconColor(notif.tipo || notif.type)}
+            />
             {isUnread && <View style={styles.unreadDot} />}
           </View>
 
@@ -188,7 +216,7 @@ const NotificacionesScreen = () => {
         </TouchableOpacity>
       );
     },
-    [handleMarkAsRead, getNotificationIcon, getNotificationBadgeVariant]
+    [handleMarkAsRead, getNotificationIcon, getNotificationIconColor, getNotificationBadgeVariant]
   );
 
   /**
@@ -199,7 +227,7 @@ const NotificacionesScreen = () => {
 
     return (
       <EmptyState
-        icon={<Text style={styles.emptyIcon}>🔔</Text>}
+        icon={<Ionicons name="notifications-outline" size={48} color={colors.grayMedium} />}
         title="Sin notificaciones"
         subtitle="No tienes notificaciones nuevas en este momento."
       />
@@ -220,7 +248,7 @@ const NotificacionesScreen = () => {
     return (
       <View style={styles.container}>
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error al cargar"
           subtitle={error}
           actionLabel="Reintentar"

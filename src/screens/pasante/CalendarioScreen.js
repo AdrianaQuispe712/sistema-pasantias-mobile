@@ -18,6 +18,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, shadows } from '../../theme';
 import { Card, Badge, EmptyState, LoadingSpinner } from '../../components/ui';
 import { getCalendario } from '../../api/calendario';
@@ -321,7 +322,7 @@ const CalendarioScreen = () => {
     return (
       <View style={styles.selectedDateContainer}>
         <Text style={styles.selectedDateTitle}>
-          📅 {dateStr}
+          <Ionicons name="calendar-outline" size={16} color={colors.primary} /> {dateStr}
         </Text>
 
         {dayEvents.length === 0 ? (
@@ -440,7 +441,7 @@ const CalendarioScreen = () => {
     return (
       <View style={styles.container}>
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error al cargar"
           subtitle={error}
           actionLabel="Reintentar"

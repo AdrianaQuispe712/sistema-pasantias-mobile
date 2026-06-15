@@ -17,6 +17,7 @@ import {
   RefreshControl,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, shadows } from '../../theme';
 import { Card, EmptyState, LoadingSpinner } from '../../components/ui';
 import { getConversaciones } from '../../api/jefeMensajeria';
@@ -157,7 +158,7 @@ const MensajesScreen = ({ navigation }) => {
     return (
       <View style={styles.screen}>
         <EmptyState
-          icon={<Text style={styles.errorIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error"
           subtitle={error}
           actionLabel="Reintentar"
@@ -168,42 +169,41 @@ const MensajesScreen = ({ navigation }) => {
   }
 
   // ─── Empty ─────────────────────────────────────────────────
+  // No hacemos return temprano — la pantalla siempre debe mostrar el FAB
 
-  if (!loading && conversaciones.length === 0) {
-    return (
-      <View style={styles.screen}>
-        <EmptyState
-          icon={<Text style={styles.emptyIcon}>💬</Text>}
-          title="Sin conversaciones"
-          subtitle="Inicia una conversación desde el perfil de un pasante."
-          actionLabel="Actualizar"
-          onAction={() => fetchConversaciones(true)}
-        />
-      </View>
-    );
-  }
-
-  // ─── Main List ─────────────────────────────────────────────
+  // ─── Main Render ─────────────────────────────────────────────
 
   return (
     <View style={styles.screen}>
-      <FlatList
-        data={conversaciones}
-        keyExtractor={(item) => String(item.id)}
-        renderItem={renderConversationItem}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => fetchConversaciones(true)}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+      {conversaciones.length === 0 && !loading ? (
+        <View style={styles.emptyWrapper}>
+          <EmptyState
+            icon={<Ionicons name="chatbubbles-outline" size={48} color={colors.grayMedium} />}
+            title="Sin conversaciones"
+            subtitle="Inicia una conversación con uno de tus pasantes."
+            actionLabel="Nuevo chat"
+            onAction={() => navigation.navigate('NuevoChat')}
           />
-        }
-      />
+        </View>
+      ) : (
+        <FlatList
+          data={conversaciones}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={renderConversationItem}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => fetchConversaciones(true)}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+        />
+      )}
 
-      {/* FAB - Nuevo chat */}
+      {/* FAB - Nuevo chat (siempre visible) */}
       <TouchableOpacity
         style={styles.fab}
         onPress={() => navigation.navigate('NuevoChat')}
@@ -221,6 +221,9 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.backgroundSecondary,
+  },
+  emptyWrapper: {
+    flex: 1,
   },
   listContent: {
     paddingBottom: spacing.xxxl,

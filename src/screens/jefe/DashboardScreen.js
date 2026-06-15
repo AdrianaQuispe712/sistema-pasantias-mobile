@@ -16,6 +16,7 @@ import {
   RefreshControl,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, borderRadius, typography, shadows } from '../../theme';
 import { Card, LoadingSpinner, EmptyState } from '../../components/ui';
@@ -60,7 +61,7 @@ const DashboardScreen = () => {
     return (
       <View style={styles.container}>
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error al cargar"
           subtitle={error}
           actionLabel="Reintentar"
@@ -104,10 +105,6 @@ const DashboardScreen = () => {
         <View style={styles.statsRow}>
           <View style={styles.statsRowCard}>
             <Text style={styles.statsRowValue}>{stats.totalPasantes || 0}</Text>
-            <Text style={styles.statsRowLabel}>Pasantes Activos</Text>
-          </View>
-          <View style={styles.statsRowCard}>
-            <Text style={styles.statsRowValue}>{stats.pasantesActivos || 0}</Text>
             <Text style={styles.statsRowLabel}>Bajo mi Supervisión</Text>
           </View>
         </View>

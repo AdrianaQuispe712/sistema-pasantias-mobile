@@ -18,6 +18,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { colors, spacing, borderRadius, typography, shadows } from '../../theme';
+import { Ionicons } from '@expo/vector-icons';
 import { Card, EmptyState, LoadingSpinner } from '../../components/ui';
 import { getConversaciones } from '../../api/pasanteMensajeria';
 
@@ -157,7 +158,7 @@ const MensajesScreen = ({ navigation }) => {
     return (
       <View style={styles.screen}>
         <EmptyState
-          icon={<Text style={styles.errorIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error"
           subtitle={error}
           actionLabel="Reintentar"
@@ -173,7 +174,7 @@ const MensajesScreen = ({ navigation }) => {
     return (
       <View style={styles.screen}>
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>💬</Text>}
+          icon={<Ionicons name="chatbubbles-outline" size={48} color={colors.grayMedium} />}
           title="Sin conversaciones"
           subtitle="No hay conversaciones activas con tu jefe de pasante."
           actionLabel="Actualizar"

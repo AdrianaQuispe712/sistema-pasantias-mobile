@@ -15,6 +15,7 @@ import {
   RefreshControl,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { Card, Badge, Button, EmptyState, LoadingSpinner } from '../../components/ui';
 import { getOfertas } from '../../api/gerenteOfertas';
@@ -115,12 +116,21 @@ const OfertasScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.ofertaMeta}>
-          <Text style={styles.metaText}>👥 {postulantesCount} postulantes</Text>
+          <View style={styles.metaItem}>
+            <Ionicons name="people-outline" size={14} color={colors.grayMedium} />
+            <Text style={styles.metaText}>{postulantesCount} postulantes</Text>
+          </View>
           {item.empresa && (
-            <Text style={styles.metaText}>🏢 {item.empresa}</Text>
+            <View style={styles.metaItem}>
+              <Ionicons name="business-outline" size={14} color={colors.grayMedium} />
+              <Text style={styles.metaText}>{item.empresa}</Text>
+            </View>
           )}
           {item.vacantes && (
-            <Text style={styles.metaText}>📋 {item.vacantes} vacantes</Text>
+            <View style={styles.metaItem}>
+              <Ionicons name="clipboard-outline" size={14} color={colors.grayMedium} />
+              <Text style={styles.metaText}>{item.vacantes} vacantes</Text>
+            </View>
           )}
         </View>
 
@@ -154,7 +164,7 @@ const OfertasScreen = ({ navigation }) => {
     return (
       <View style={styles.screen}>
         <EmptyState
-          icon={<Text style={styles.errorIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error"
           subtitle={error}
           actionLabel="Reintentar"
@@ -170,7 +180,7 @@ const OfertasScreen = ({ navigation }) => {
     return (
       <View style={styles.screen}>
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>💼</Text>}
+          icon={<Ionicons name="briefcase-outline" size={48} color={colors.grayMedium} />}
           title="Sin ofertas"
           subtitle="No hay ofertas de pasantía registradas."
           actionLabel="Actualizar"
@@ -255,6 +265,11 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.md,
     marginBottom: spacing.sm,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   metaText: {
     fontSize: typography.xs,

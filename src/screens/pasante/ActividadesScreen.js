@@ -18,6 +18,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, shadows } from '../../theme';
 import { Card, Badge, EmptyState, LoadingSpinner } from '../../components/ui';
 import { getMisActividades, getEstado } from '../../api/actividades';
@@ -90,16 +91,34 @@ const ActividadesScreen = () => {
   );
 
   /**
-   * Obtiene el color del badge según el estado
+   * Obtiene el color del badge según el estado y la fecha límite.
+   *
+   * REGLA: Si la actividad ya pasó su fechaFin, se pinta ROJO (atraso)
+   * sin importar el estado. Si no, colores normales:
+   * - en_progreso → naranja
+   * - completada/aprobada → verde
+   * - pendiente → amarillo
+   * - rechazada → rojo
    */
-  const getStatusBadgeVariant = useCallback((status) => {
+  const getStatusBadgeVariant = useCallback((status, fechaFin) => {
+    // ¿Ya venció?
+    if (fechaFin) {
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const limite = new Date(fechaFin);
+      limite.setHours(0, 0, 0, 0);
+      if (limite < hoy) {
+        return 'error'; // rojo — atrasada
+      }
+    }
+
     switch (status?.toLowerCase()) {
       case 'completada':
       case 'aprobada':
         return 'success';
       case 'en_progreso':
       case 'en progreso':
-        return 'info';
+        return 'orange';
       case 'pendiente':
         return 'warning';
       case 'rechazada':
@@ -155,7 +174,7 @@ const ActividadesScreen = () => {
               {actividad.nombre || actividad.titulo || 'Sin nombre'}
             </Text>
             <Badge
-              variant={getStatusBadgeVariant(actividad.estado)}
+              variant={getStatusBadgeVariant(actividad.estado, actividad.fechaFin)}
               size="sm"
               label={actividad.estado?.replace('_', ' ') || 'Pendiente'}
             />
@@ -172,7 +191,7 @@ const ActividadesScreen = () => {
           <View style={styles.actividadFechas}>
             {actividad.fechaInicio && (
               <Text style={styles.fechaText}>
-                📅 {formatDate(actividad.fechaInicio)}
+                <Ionicons name="calendar-outline" size={14} color={colors.grayMedium} /> {formatDate(actividad.fechaInicio)}
               </Text>
             )}
             {actividad.fechaFin && (
@@ -197,7 +216,7 @@ const ActividadesScreen = () => {
     if (!estado) {
       return (
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>📊</Text>}
+          icon={<Ionicons name="bar-chart-outline" size={48} color={colors.grayMedium} />}
           title="Sin datos de estado"
           subtitle="Aún no hay información de estado disponible."
         />
@@ -206,28 +225,25 @@ const ActividadesScreen = () => {
 
     return (
       <View style={styles.estadoContainer}>
-        {/* Próximos vencimientos */}
-        {estado.proximosVencimientos && estado.proximosVencimientos.length > 0 ? (
-          <Card variant="outlined" style={styles.estadoCard}>
-            <Text style={styles.estadoCardTitle}>Próximos vencimientos</Text>
-            {estado.proximosVencimientos.map((item, index) => (
-              <View key={index} style={styles.vencimientoItem}>
-                <Text style={styles.vencimientoNombre}>{item.nombre}</Text>
-                <Badge
-                  variant="warning"
-                  size="sm"
-                  label={`Vence: ${formatDate(item.fechaFin)}`}
-                />
-              </View>
-            ))}
-          </Card>
-        ) : (
-          <EmptyState
-            icon={<Text style={styles.emptyIcon}>📊</Text>}
-            title="Sin vencimientos"
-            subtitle="No tenés actividades próximas a vencer."
-          />
-        )}
+        {/* ── Tarjetas de estadísticas ── */}
+        <Card variant="default" style={styles.estadoCard}>
+          <Text style={styles.estadoCardTitle}>Resumen</Text>
+
+          <View style={styles.estadoStats}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{estado.total || 0}</Text>
+              <Text style={styles.statLabel}>Total</Text>
+            </View>
+            <View style={[styles.statItem, styles.statDivider]}>
+              <Text style={styles.statNumber}>{estado.completadas || 0}</Text>
+              <Text style={styles.statLabel}>Completadas</Text>
+            </View>
+            <View style={[styles.statItem, styles.statDivider]}>
+              <Text style={styles.statNumber}>{estado.enProgreso || 0}</Text>
+              <Text style={styles.statLabel}>En Progreso</Text>
+            </View>
+          </View>
+        </Card>
       </View>
     );
   };
@@ -246,7 +262,7 @@ const ActividadesScreen = () => {
     return (
       <View style={styles.container}>
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error al cargar"
           subtitle={error}
           actionLabel="Reintentar"
@@ -297,7 +313,7 @@ const ActividadesScreen = () => {
           renderItem={renderActividadItem}
           ListEmptyComponent={
             <EmptyState
-              icon={<Text style={styles.emptyIcon}>📋</Text>}
+              icon={<Ionicons name="clipboard-outline" size={48} color={colors.grayMedium} />}
               title="Sin actividades asignadas"
               subtitle="Aún no tienes actividades asignadas. Espera a que tu supervisor las cree."
             />

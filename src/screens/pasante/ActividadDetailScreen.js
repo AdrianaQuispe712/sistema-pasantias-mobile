@@ -23,6 +23,8 @@ import {
   Image,
 } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, borderRadius, typography, shadows } from '../../theme';
 import { Button, Header, Badge, Card, EmptyState, LoadingSpinner } from '../../components/ui';
 import { getMisActividades } from '../../api/actividades';
@@ -152,16 +154,34 @@ const ActividadDetailScreen = () => {
   }, [navigation, actividadId]);
 
   /**
-   * Obtiene el color del badge según el estado
+   * Obtiene el color del badge según el estado y la fecha límite.
+   *
+   * REGLA: Si la actividad ya pasó su fechaFin, se pinta ROJO (atraso)
+   * sin importar el estado. Si no, colores normales:
+   * - en_progreso → naranja
+   * - completada/aprobada → verde
+   * - pendiente → amarillo
+   * - rechazada → rojo
    */
-  const getStatusBadgeVariant = useCallback((status) => {
-    switch (status?.toLowerCase()) {
+  const getStatusBadgeVariant = useCallback((estado, fechaFin) => {
+    // ¿Ya venció?
+    if (fechaFin) {
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const limite = new Date(fechaFin);
+      limite.setHours(0, 0, 0, 0);
+      if (limite < hoy) {
+        return 'error'; // rojo — atrasada
+      }
+    }
+
+    switch (estado?.toLowerCase()) {
       case 'completada':
       case 'aprobada':
         return 'success';
       case 'en_progreso':
       case 'en progreso':
-        return 'info';
+        return 'orange';
       case 'pendiente':
         return 'warning';
       case 'rechazada':
@@ -235,7 +255,7 @@ const ActividadDetailScreen = () => {
 
         {bitacora.horasTrabajadas && (
           <Text style={styles.bitacoraHoras}>
-            ⏱️ {bitacora.horasTrabajadas} horas
+            <Ionicons name="time-outline" size={14} color={colors.text} style={{marginRight: 4}} /> {bitacora.horasTrabajadas} horas
           </Text>
         )}
 
@@ -269,7 +289,7 @@ const ActividadDetailScreen = () => {
       <View style={styles.container}>
         <Header title="Detalle de Actividad" />
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error al cargar"
           subtitle={error}
           actionLabel="Reintentar"
@@ -285,7 +305,7 @@ const ActividadDetailScreen = () => {
       <View style={styles.container}>
         <Header title="Detalle de Actividad" />
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>🔍</Text>}
+          icon={<Ionicons name="search-outline" size={48} color={colors.grayMedium} />}
           title="Actividad no encontrada"
           subtitle="La actividad que buscas no existe o fue removida."
           actionLabel="Volver"
@@ -312,7 +332,7 @@ const ActividadDetailScreen = () => {
 
               <View style={styles.badgesRow}>
                 <Badge
-                  variant={getStatusBadgeVariant(actividad.estado)}
+                  variant={getStatusBadgeVariant(actividad.estado, actividad.fechaFin)}
                   size="sm"
                   label={actividad.estado?.replace('_', ' ') || 'Pendiente'}
                 />
@@ -366,23 +386,35 @@ const ActividadDetailScreen = () => {
             {/* Botones de acción — solo si NO viene del calendario */}
             {!fromCalendar && (
             <View style={styles.actionButtons}>
-              <Button
-                variant="primary"
-                size="lg"
-                fullWidth
-                title="Registrar Bitácora"
+              <TouchableOpacity
                 onPress={handleRegistrarAvance}
-                leftIcon={<Text style={styles.buttonIcon}>📝</Text>}
-              />
-              <Button
-                variant="secondary"
-                size="lg"
-                fullWidth
-                title="Subir Evidencia"
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={[colors.orange, colors.amber]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.actionBtn}
+                >
+                  <Ionicons name="create-outline" size={16} color={colors.white} />
+                  <Text style={styles.actionBtnText}>Bitácora</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 onPress={handleSubirEvidencia}
-                leftIcon={<Text style={styles.buttonIcon}>📎</Text>}
-                style={styles.secondaryButton}
-              />
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={[colors.secondary, colors.accent]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.actionBtn}
+                >
+                  <Ionicons name="attach-outline" size={16} color={colors.white} />
+                  <Text style={styles.actionBtnText}>Evidencia</Text>
+                </LinearGradient>
+              </TouchableOpacity>
             </View>
             )}
 
@@ -395,7 +427,7 @@ const ActividadDetailScreen = () => {
                 {evidencias.map((ev, idx) => {
                   const esFoto = ev.tipo === 'foto';
                   const tipoEtiqueta = esFoto ? 'Foto' : 'Documento';
-                  const emoji = esFoto ? '🖼️' : '📄';
+                  const evidenciaIconName = esFoto ? 'image-outline' : 'document-outline';
 
                   return (
                     <TouchableOpacity
@@ -417,7 +449,7 @@ const ActividadDetailScreen = () => {
                     >
                       <Card variant="outlined" style={styles.evidenciaCard}>
                         <View style={styles.evidenciaRow}>
-                          <Text style={styles.evidenciaIcon}>{emoji}</Text>
+                          <Ionicons name={evidenciaIconName} size={24} color={colors.text} style={styles.evidenciaIcon} />
                           <View style={styles.evidenciaInfo}>
                             <Text style={styles.evidenciaName} numberOfLines={1}>
                               {tipoEtiqueta}
@@ -455,7 +487,7 @@ const ActividadDetailScreen = () => {
         ListEmptyComponent={
           fromCalendar ? null : (
           <EmptyState
-            icon={<Text style={styles.emptyIcon}>📓</Text>}
+            icon={<Ionicons name="book-outline" size={48} color={colors.grayMedium} />}
             title="Sin bitácoras registradas"
             subtitle="Aún no has registrado avances en esta actividad."
             actionLabel="Registrar primer avance"
@@ -488,7 +520,7 @@ const ActividadDetailScreen = () => {
             onPress={() => setViewerImage(null)}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <Text style={styles.viewerCloseText}>✕</Text>
+            <Ionicons name="close-outline" size={20} color={colors.white} />
           </TouchableOpacity>
           {viewerImage?.url && (
             <Image
@@ -591,15 +623,25 @@ const styles = StyleSheet.create({
   },
   // Botones de acción
   actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     gap: spacing.md,
     marginBottom: spacing.xl,
   },
-  secondaryButton: {
-    marginTop: 0,
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: borderRadius.md,
+    gap: spacing.xs,
+    minWidth: 130,
   },
-  buttonIcon: {
-    fontSize: typography.md,
-    marginRight: spacing.xs,
+  actionBtnText: {
+    color: colors.white,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
   },
   // Bitácoras
   bitacorasHeader: {

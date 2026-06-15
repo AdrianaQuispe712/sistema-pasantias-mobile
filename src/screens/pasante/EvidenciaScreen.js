@@ -21,6 +21,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { cacheDirectory, makeDirectoryAsync, copyAsync, deleteAsync } from 'expo-file-system/legacy';
@@ -32,7 +33,7 @@ import { translateError } from '../../utils/translateError';
 
 // ─── Constantes ────────────────────────────────────────────
 
-const MAX_IMAGES = 5;
+const MAX_IMAGES = 2;
 const MAX_DOCUMENTS = 1;
 const MAX_FILE_SIZE_MB = 2;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -429,7 +430,7 @@ const EvidenciaScreen = () => {
       setUploading(false);
 
       Alert.alert(
-        '✅ ¡Evidencia subida!',
+        '¡Evidencia subida!',
         'Tu evidencia fue registrada correctamente. Podés verla en el detalle de la actividad.',
         [{ text: 'Aceptar', onPress: () => navigation.goBack() }]
       );
@@ -469,7 +470,7 @@ const EvidenciaScreen = () => {
         message = translateError(err.message);
       }
 
-      Alert.alert('❌ Error al subir', message);
+      Alert.alert('Error al subir', message);
     } finally {
       uploadingRef.current = false;
     }
@@ -489,7 +490,7 @@ const EvidenciaScreen = () => {
 
     return (
       <View style={styles.uploadingBanner}>
-        <Text style={styles.uploadingIcon}>⏳</Text>
+        <Text style={styles.uploadingIcon}><Ionicons name="hourglass-outline" size={20} color={colors.info} /></Text>
         <Text style={styles.uploadingText}>Subiendo evidencia... No cierres la app.</Text>
       </View>
     );
@@ -508,7 +509,7 @@ const EvidenciaScreen = () => {
             <View key={index} style={styles.imagePreview}>
               <Image source={{ uri: file.uri }} style={styles.previewImage} />
               <TouchableOpacity style={styles.removeButton} onPress={() => removeFile(index)}>
-                <Text style={styles.removeButtonText}>✕</Text>
+                <Ionicons name="close-outline" size={12} color={colors.textOnPrimary} />
               </TouchableOpacity>
               {file.size > 0 && (
                 <View style={styles.fileSizeBadge}>
@@ -532,7 +533,7 @@ const EvidenciaScreen = () => {
         <Text style={styles.sectionLabel}>Documento seleccionado</Text>
         <Card variant="outlined" style={[styles.documentCard, isOversized && styles.documentCardError]}>
           <View style={styles.documentInfo}>
-            <Text style={styles.documentIcon}>📄</Text>
+            <Ionicons name="document-outline" size={24} color={colors.text} style={styles.documentIcon} />
             <View style={styles.documentDetails}>
               <Text style={styles.documentName} numberOfLines={1}>
                 {selectedDocument.name}
@@ -547,12 +548,12 @@ const EvidenciaScreen = () => {
               </View>
             </View>
             <TouchableOpacity onPress={removeDocument}>
-              <Text style={styles.removeButtonText}>✕</Text>
+              <Ionicons name="close-outline" size={14} color={colors.textOnPrimary} />
             </TouchableOpacity>
           </View>
           {isOversized && (
             <Text style={styles.documentErrorText}>
-              ⚠️ Este documento supera los {MAX_FILE_SIZE_MB} MB. Eliminalo y seleccioná uno más chico.
+              Este documento supera los {MAX_FILE_SIZE_MB} MB. Eliminalo y seleccioná uno más chico.
             </Text>
           )}
         </Card>
@@ -576,7 +577,7 @@ const EvidenciaScreen = () => {
       <View style={styles.container}>
         <Header title="Subir Evidencia" />
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error al cargar"
           subtitle={error}
           actionLabel="Reintentar"
@@ -619,7 +620,7 @@ const EvidenciaScreen = () => {
 
         {/* Info de límites */}
         <Card variant="outlined" style={styles.infoCard}>
-          <Text style={styles.infoTitle}>ℹ️ Información</Text>
+          <Text style={styles.infoTitle}><Ionicons name="information-circle-outline" size={16} color={colors.info} /> Información</Text>
           <Text style={styles.infoText}>
             • Máximo {MAX_IMAGES} imágenes{'\n'}
             • Máximo {MAX_DOCUMENTS} documento (PDF, Word, Excel){'\n'}
@@ -632,19 +633,19 @@ const EvidenciaScreen = () => {
           <Text style={styles.sectionLabel}>Archivos *</Text>
           <View style={styles.fileButtonsContainer}>
             <TouchableOpacity style={styles.fileButton} onPress={() => pickImage(true)}>
-              <Text style={styles.fileButtonIcon}>📷</Text>
+              <Ionicons name="camera-outline" size={24} color={colors.text} style={styles.fileButtonIcon} />
               <Text style={styles.fileButtonText}>Cámara</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.fileButton} onPress={() => pickImage(false)}>
-              <Text style={styles.fileButtonIcon}>🖼️</Text>
+              <Ionicons name="image-outline" size={24} color={colors.text} style={styles.fileButtonIcon} />
               <Text style={styles.fileButtonText}>
                 Galería{selectedFiles.length > 0 ? ` (${selectedFiles.length})` : ''}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.fileButton} onPress={pickDocument}>
-              <Text style={styles.fileButtonIcon}>📄</Text>
+              <Ionicons name="document-outline" size={24} color={colors.text} style={styles.fileButtonIcon} />
               <Text style={styles.fileButtonText}>Documento</Text>
             </TouchableOpacity>
           </View>
@@ -679,7 +680,7 @@ const EvidenciaScreen = () => {
             }}
             numberOfLines={3}
             error={errors.descripcion}
-            leftIcon={<Text style={styles.inputIcon}>📝</Text>}
+            leftIcon={<Ionicons name="create-outline" size={18} color={colors.grayMedium} />}
           />
         </Card>
 

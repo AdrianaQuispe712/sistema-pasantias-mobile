@@ -16,6 +16,7 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, shadows } from '../../theme';
 import { Avatar, EmptyState, LoadingSpinner } from '../../components/ui';
 import { getPasantes } from '../../api/jefePasantes';
@@ -106,7 +107,7 @@ const NuevoChatScreen = ({ navigation }) => {
           </View>
 
           {!isCreating && (
-            <Text style={styles.chatIcon}>💬</Text>
+            <Ionicons name="chatbubble-outline" size={20} color={colors.primary} />
           )}
         </View>
       </TouchableOpacity>
@@ -129,7 +130,7 @@ const NuevoChatScreen = ({ navigation }) => {
     return (
       <View style={styles.screen}>
         <EmptyState
-          icon={<Text style={styles.errorIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error"
           subtitle={error}
           actionLabel="Reintentar"
@@ -145,7 +146,7 @@ const NuevoChatScreen = ({ navigation }) => {
     return (
       <View style={styles.screen}>
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>👥</Text>}
+          icon={<Ionicons name="people-outline" size={48} color={colors.grayMedium} />}
           title="Sin pasantes"
           subtitle="No tienes pasantes asignados para iniciar una conversación."
           actionLabel="Actualizar"

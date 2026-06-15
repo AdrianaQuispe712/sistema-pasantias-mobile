@@ -27,6 +27,7 @@ import {
   TextInput,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, shadows } from '../../theme';
 import { Button, Card, Badge, EmptyState, LoadingSpinner } from '../../components/ui';
 import { getOfertas } from '../../api/ofertas';
@@ -180,13 +181,13 @@ const OfertasScreen = () => {
           <View style={styles.ofertaMeta}>
             {oferta.ubicacion && (
               <View style={styles.metaItem}>
-                <Text style={styles.metaIcon}>📍</Text>
+                <Ionicons name="location-outline" size={14} color={colors.grayMedium} />
                 <Text style={styles.metaText}>{oferta.ubicacion}</Text>
               </View>
             )}
             {oferta.vacantes && (
               <View style={styles.metaItem}>
-                <Text style={styles.metaIcon}>👥</Text>
+                <Ionicons name="people-outline" size={14} color={colors.grayMedium} />
                 <Text style={styles.metaText}>
                   {oferta.vacantes} {oferta.vacantes === 1 ? 'vacante' : 'vacantes'}
                 </Text>
@@ -218,7 +219,7 @@ const OfertasScreen = () => {
 
     return (
       <EmptyState
-        icon={<Text style={styles.emptyIcon}>📋</Text>}
+        icon={<Ionicons name="clipboard-outline" size={48} color={colors.grayMedium} />}
         title="No hay ofertas disponibles"
         subtitle={
           searchQuery || selectedModality !== 'Todas'
@@ -250,7 +251,7 @@ const OfertasScreen = () => {
     return (
       <View style={styles.container}>
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error al cargar"
           subtitle={error}
           actionLabel="Reintentar"
@@ -287,7 +288,7 @@ const OfertasScreen = () => {
               style={styles.clearSearch}
               onPress={() => setSearchQuery('')}
             >
-              <Text style={styles.clearSearchText}>✕</Text>
+              <Ionicons name="close-outline" size={16} color={colors.grayMedium} />
             </TouchableOpacity>
           )}
         </View>

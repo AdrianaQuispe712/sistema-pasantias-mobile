@@ -15,6 +15,7 @@ import {
   Alert,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import {
   Card,
@@ -157,7 +158,7 @@ const InscripcionDetailScreen = ({ route, navigation }) => {
     return (
       <View style={styles.screen}>
         <EmptyState
-          icon={<Text style={styles.errorIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error"
           subtitle={error || 'Inscripción no encontrada'}
           actionLabel="Reintentar"
@@ -244,7 +245,10 @@ const InscripcionDetailScreen = ({ route, navigation }) => {
           <Text style={styles.sectionTitle}>Oferta Asociada</Text>
           <Text style={styles.ofertaTitle}>{ofertaTitle}</Text>
           {ofertaEmpresa ? (
-            <Text style={styles.ofertaEmpresa}>🏢 {ofertaEmpresa}</Text>
+            <View style={styles.ofertaEmpresaRow}>
+              <Ionicons name="business-outline" size={14} color={colors.textSecondary} />
+              <Text style={styles.ofertaEmpresa}>{ofertaEmpresa}</Text>
+            </View>
           ) : null}
           {ofertaDescripcion ? (
             <Text style={styles.ofertaDescripcion}>{ofertaDescripcion}</Text>
@@ -376,10 +380,15 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: spacing.sm,
   },
+  ofertaEmpresaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: spacing.sm,
+  },
   ofertaEmpresa: {
     fontSize: typography.sm,
     color: colors.textSecondary,
-    marginBottom: spacing.sm,
   },
   ofertaDescripcion: {
     fontSize: typography.sm,

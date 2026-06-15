@@ -17,6 +17,7 @@ import {
   Alert,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { Card, Badge, Button, EmptyState, LoadingSpinner } from '../../components/ui';
 import {
@@ -229,11 +230,17 @@ const InscripcionesScreen = ({ navigation, route }) => {
             </Text>
             <Badge variant={badge.variant} label={badge.label} size="sm" />
           </View>
-          <Text style={styles.ofertaText} numberOfLines={1}>
-            📋 {ofertaTitle}
-          </Text>
+          <View style={styles.metaItem}>
+            <Ionicons name="clipboard-outline" size={14} color={colors.grayMedium} />
+            <Text style={styles.ofertaText} numberOfLines={1}>
+              {ofertaTitle}
+            </Text>
+          </View>
           {item.fecha && (
-            <Text style={styles.dateText}>📅 {formatDate(item.fecha)}</Text>
+            <View style={styles.metaItem}>
+              <Ionicons name="calendar-outline" size={14} color={colors.grayMedium} />
+              <Text style={styles.dateText}>{formatDate(item.fecha)}</Text>
+            </View>
           )}
         </View>
 
@@ -280,7 +287,7 @@ const InscripcionesScreen = ({ navigation, route }) => {
     return (
       <View style={styles.screen}>
         <EmptyState
-          icon={<Text style={styles.errorIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error"
           subtitle={error}
           actionLabel="Reintentar"
@@ -296,7 +303,7 @@ const InscripcionesScreen = ({ navigation, route }) => {
     return (
       <View style={styles.screen}>
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>📝</Text>}
+          icon={<Ionicons name="create-outline" size={48} color={colors.grayMedium} />}
           title="Sin inscripciones"
           subtitle="No hay inscripciones registradas."
           actionLabel="Actualizar"
@@ -314,7 +321,7 @@ const InscripcionesScreen = ({ navigation, route }) => {
 
       {filteredInscripciones.length === 0 ? (
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>🔍</Text>}
+          icon={<Ionicons name="search-outline" size={48} color={colors.grayMedium} />}
           title="Sin resultados"
           subtitle={`No hay inscripciones ${
             activeFilter === 'todas' ? '' : `con estado "${activeFilter}"`
@@ -399,10 +406,15 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginRight: spacing.sm,
   },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: spacing.xs,
+  },
   ofertaText: {
     fontSize: typography.sm,
     color: colors.textSecondary,
-    marginBottom: spacing.xs,
   },
   dateText: {
     fontSize: typography.xs,

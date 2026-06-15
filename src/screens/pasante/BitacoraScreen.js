@@ -25,6 +25,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import { Button, Header, Card, Input, LoadingSpinner, EmptyState } from '../../components/ui';
 import { getMisActividades } from '../../api/actividades';
@@ -314,7 +315,7 @@ const BitacoraScreen = () => {
             Alert.alert('Seleccionar fecha', 'Funcionalidad de DatePicker pendiente de implementar.', [{ text: 'OK' }]);
           }}
         >
-          <Text style={styles.fechaText}>📅 {formatDate(fecha) || 'Seleccionar fecha'}</Text>
+          <Text style={styles.fechaText}><Ionicons name="calendar-outline" size={16} color={colors.text} /> {formatDate(fecha) || 'Seleccionar fecha'}</Text>
         </TouchableOpacity>
       </View>
       {errors.fecha && <Text style={styles.errorText}>{errors.fecha}</Text>}
@@ -331,7 +332,7 @@ const BitacoraScreen = () => {
       {ultimoPorcentaje > 0 && (
         <View style={styles.ultimoBanner}>
           <Text style={styles.ultimoBannerText}>
-            📌 Último avance registrado: {ultimoPorcentaje}% — no puedes bajarlo
+            <Ionicons name="pin-outline" size={14} color={colors.warning} /> Último avance registrado: {ultimoPorcentaje}% — no puedes bajarlo
           </Text>
         </View>
       )}
@@ -394,7 +395,7 @@ const BitacoraScreen = () => {
         onChangeText={setHorasTrabajadas}
         keyboardType="numeric"
         error={errors.horas}
-        leftIcon={<Text style={styles.inputIcon}>⏱️</Text>}
+        leftIcon={<Ionicons name="time-outline" size={18} color={colors.grayMedium} />}
       />
     </Card>
   );
@@ -408,7 +409,7 @@ const BitacoraScreen = () => {
         onChangeText={setObservacion}
         numberOfLines={4}
         error={errors.observacion}
-        leftIcon={<Text style={styles.inputIcon}>📝</Text>}
+        leftIcon={<Ionicons name="create-outline" size={18} color={colors.grayMedium} />}
       />
     </Card>
   );
@@ -429,7 +430,7 @@ const BitacoraScreen = () => {
       <View style={styles.container}>
         <Header title="Registrar Bitácora" />
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error al cargar"
           subtitle={error}
           actionLabel="Reintentar"
@@ -444,7 +445,7 @@ const BitacoraScreen = () => {
       <View style={styles.container}>
         <Header title="Registrar Bitácora" />
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>📋</Text>}
+          icon={<Ionicons name="clipboard-outline" size={48} color={colors.grayMedium} />}
           title="Sin actividades disponibles"
           subtitle="No tenés actividades pendientes para registrar bitácora."
           actionLabel="Volver"

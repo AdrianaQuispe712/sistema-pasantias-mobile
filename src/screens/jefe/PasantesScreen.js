@@ -16,6 +16,7 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { Card, Avatar, Badge, EmptyState, LoadingSpinner } from '../../components/ui';
 import { getPasantes } from '../../api/jefePasantes';
@@ -23,13 +24,10 @@ import { getPasantes } from '../../api/jefePasantes';
 /**
  * Badge variant según estado del pasante
  * Estados reales del monolito: pendiente, aceptado, completado, abandono, rechazado
- * Nota: el backend retorna 'activo' hardcodeado — mapeamos a 'aceptado'
- * porque todos los pasantes de este endpoint tienen inscripción aceptada
  */
 const getStatusBadge = (estado) => {
   switch (estado) {
     case 'aceptado':
-    case 'activo':   // backend hardcodea 'activo' para inscripciones aceptadas
       return { variant: 'success', label: 'Aceptado' };
     case 'pendiente':
       return { variant: 'warning', label: 'Pendiente' };
@@ -147,7 +145,7 @@ const PasantesScreen = ({ navigation }) => {
         <View style={styles.statusBarSpacer} />
         <Text style={styles.screenSubtitle}>Pasantes asignados</Text>
         <EmptyState
-          icon={<Text style={styles.errorIcon}>⚠️</Text>}
+          icon={<Ionicons name="alert-circle" size={48} color={colors.error} />}
           title="Error"
           subtitle={error}
           actionLabel="Reintentar"
@@ -165,7 +163,7 @@ const PasantesScreen = ({ navigation }) => {
         <View style={styles.statusBarSpacer} />
         <Text style={styles.screenSubtitle}>Pasantes asignados</Text>
         <EmptyState
-          icon={<Text style={styles.emptyIcon}>👥</Text>}
+          icon={<Ionicons name="people-outline" size={48} color={colors.grayMedium} />}
           title="Sin pasantes"
           subtitle="No hay pasantes asignados actualmente."
           actionLabel="Actualizar"
