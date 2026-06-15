@@ -4,11 +4,15 @@
  * Formulario con:
  * - Selector de actividad (si no se pasa como parámetro)
  * - Selector de fecha
- * - Slider de porcentaje (0-100%)
+ * - Slider de porcentaje — NUNCA puede bajar del último registrado
  * - Input de horas trabajadas
  * - Textarea de observaciones
  * - Validación de campos
  * - Botón de envío
+ *
+ * REGLA DE NEGOCIO: El porcentaje solo puede AVANZAR.
+ * Si el último registro fue 78%, no podés poner 35%.
+ * El slider arranca desde el último porcentaje registrado.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -18,15 +22,15 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Platform,
   StyleSheet,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import { Button, Header, Card, Input, LoadingSpinner, EmptyState } from '../../components/ui';
 import { getMisActividades } from '../../api/actividades';
-import { createBitacora } from '../../api/bitacoras';
+import { getBitacoras, createBitacora } from '../../api/bitacoras';
 import { formatDate } from '../../utils/dateUtils';
+import { translateError } from '../../utils/translateError';
 
 const BitacoraScreen = () => {
   const navigation = useNavigation();
@@ -47,18 +51,20 @@ const BitacoraScreen = () => {
   const [horasTrabajadas, setHorasTrabajadas] = useState('');
   const [observacion, setObservacion] = useState('');
 
+  // Último porcentaje registrado (piso mínimo, no se puede bajar)
+  const [ultimoPorcentaje, setUltimoPorcentaje] = useState(0);
+  const [cargandoUltimo, setCargandoUltimo] = useState(false);
+
   // Validation errors
   const [errors, setErrors] = useState({});
 
-  /**
-   * Carga las actividades disponibles
-   */
+  // ── Carga actividades ──────────────────────────────────
+
   const fetchActividades = useCallback(async () => {
     try {
       setError(null);
       const data = await getMisActividades();
       const list = Array.isArray(data) ? data : data.data || [];
-      // Filtrar solo actividades no completadas
       const pending = list.filter(
         (a) => a.estado?.toLowerCase() !== 'completada' && a.estado?.toLowerCase() !== 'aprobada'
       );
@@ -71,20 +77,86 @@ const BitacoraScreen = () => {
     }
   }, []);
 
-  // Carga inicial
   useEffect(() => {
     fetchActividades();
   }, [fetchActividades]);
 
-  /**
-   * Valida el formulario
-   * @returns {boolean} true si es válido
-   */
+  // ── Carga el último avance de la actividad seleccionada ──
+
+  const fetchUltimoAvance = useCallback(async (actividadId) => {
+    if (!actividadId) {
+      setUltimoPorcentaje(0);
+      setPorcentaje(0);
+      return;
+    }
+
+    try {
+      setCargandoUltimo(true);
+      const data = await getBitacoras();
+      const allBitacoras = Array.isArray(data)
+        ? data
+        : data?.data || data?.bitacoras || data?.bitacorasCollection || [];
+
+      // Filtrar por actividad
+      const deEstaActividad = allBitacoras.filter((b) => {
+        const bid = b.actividadId ?? b.actividad_id ?? b.idActividad ?? b.id_actividad;
+        return String(bid) === String(actividadId);
+      });
+
+      if (deEstaActividad.length > 0) {
+        // Buscar el porcentaje más alto (más reciente o más avanzado)
+        const sorted = [...deEstaActividad]
+          .filter((b) => b.porcentaje !== undefined && b.porcentaje !== null)
+          .sort((a, b) => {
+            const dateA = new Date(a.fecha || a.created_at || 0);
+            const dateB = new Date(b.fecha || b.created_at || 0);
+            return dateB - dateA; // más reciente primero
+          });
+
+        const ultimo = Math.round(sorted[0]?.porcentaje ?? 0);
+        setUltimoPorcentaje(ultimo);
+        setPorcentaje(ultimo); // Precargar con el último valor (entero)
+      } else {
+        setUltimoPorcentaje(0);
+        setPorcentaje(0);
+      }
+    } catch (err) {
+      console.error('Error al cargar último avance:', err);
+      // No bloqueamos — si falla, se permite cualquier porcentaje
+      setUltimoPorcentaje(0);
+    } finally {
+      setCargandoUltimo(false);
+    }
+  }, []);
+
+  // Cuando se selecciona una actividad, cargar su último avance
+  useEffect(() => {
+    if (selectedActividadId) {
+      fetchUltimoAvance(selectedActividadId);
+    }
+  }, [selectedActividadId, fetchUltimoAvance]);
+
+  // Si ya viene con actividad pre-seleccionada, cargar el último avance
+  useEffect(() => {
+    if (initialActividadId) {
+      fetchUltimoAvance(initialActividadId);
+    }
+  }, [initialActividadId, fetchUltimoAvance]);
+
+  // ── Maneja cambio de actividad ─────────────────────────
+
+  const handleActividadChange = useCallback((id) => {
+    setSelectedActividadId(String(id));
+    setErrors((prev) => ({ ...prev, actividad: undefined }));
+  }, []);
+
+  // ── Validación ─────────────────────────────────────────
+
   const validateForm = useCallback(() => {
     const newErrors = {};
 
     if (!selectedActividadId) {
-      newErrors.actividad = 'Selecciona una actividad.';
+      newErrors.actividad = 'Seleccioná una actividad.';
     }
 
     if (!fecha) {
@@ -92,11 +164,18 @@ const BitacoraScreen = () => {
     }
 
     if (!horasTrabajadas || isNaN(Number(horasTrabajadas)) || Number(horasTrabajadas) <= 0) {
-      newErrors.horas = 'Ingresa las horas trabajadas (número mayor a 0).';
+      newErrors.horas = 'Ingresá las horas trabajadas (número mayor a 0).';
     }
 
     if (porcentaje < 0 || porcentaje > 100) {
       newErrors.porcentaje = 'El porcentaje debe estar entre 0 y 100.';
+    }
+
+    // REGLA DE NEGOCIO: no se puede retroceder
+    if (ultimoPorcentaje > 0 && porcentaje < ultimoPorcentaje) {
+      newErrors.porcentaje =
+        `No puedes retroceder el avance. El último registro fue ${ultimoPorcentaje}%. ` +
+        `El nuevo porcentaje debe ser ≥ ${ultimoPorcentaje}%.`;
     }
 
     if (!observacion.trim()) {
@@ -105,11 +184,10 @@ const BitacoraScreen = () => {
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [selectedActividadId, fecha, horasTrabajadas, porcentaje, observacion]);
+  }, [selectedActividadId, fecha, horasTrabajadas, porcentaje, ultimoPorcentaje, observacion]);
 
-  /**
-   * Maneja el envío del formulario
-   */
+  // ── Envío ──────────────────────────────────────────────
+
   const handleSubmit = useCallback(async () => {
     if (!validateForm()) {
       Alert.alert('Error', 'Por favor corrige los errores en el formulario.');
@@ -119,64 +197,102 @@ const BitacoraScreen = () => {
     try {
       setSubmitting(true);
 
+      // Enviar ambos formatos: el monolito puede esperar camelCase o snake_case
       const payload = {
+        idActividad: Number(selectedActividadId),
         actividadId: selectedActividadId,
+        actividad_id: selectedActividadId,
         fecha,
         porcentaje: Number(porcentaje),
         horasTrabajadas: Number(horasTrabajadas),
+        horas_trabajadas: Number(horasTrabajadas),
         observacion: observacion.trim(),
       };
 
+      console.log('[Bitacora] Enviando:', JSON.stringify(payload));
       await createBitacora(payload);
+      console.log('[Bitacora] ÉXITO');
 
       Alert.alert(
         '¡Registro exitoso!',
-        'Tu avance ha sido registrado correctamente.',
+        `Tu avance del ${porcentaje}% ha sido registrado correctamente.`,
         [{ text: 'Aceptar', onPress: () => navigation.goBack() }]
       );
     } catch (err) {
-      console.error('Error al crear bitácora:', err);
-      const message =
-        err.response?.data?.message || 'No se pudo registrar el avance. Intente nuevamente.';
-      Alert.alert('Error', message);
+      console.error('[Bitacora] ERROR:', err);
+      if (err.response) {
+        console.log('[Bitacora] STATUS:', err.response.status);
+        console.log('[Bitacora] DATA:', JSON.stringify(err.response.data));
+      }
+
+      // Extraer mensaje de validación y traducir
+      let message = 'No se pudo registrar el avance. Intentá nuevamente.';
+      const data = err.response?.data;
+      if (data) {
+        try {
+          if (typeof data === 'object' && data.errors) {
+            const allErrors = Object.entries(data.errors)
+              .map(([field, msgs]) => {
+                const msgList = Array.isArray(msgs) ? msgs.join(', ') : msgs;
+                return `• ${translateError(msgList)}`;
+              })
+              .join('\n');
+            if (allErrors) message = allErrors;
+          } else if (data.message) {
+            message = translateError(data.message);
+          } else if (typeof data === 'string') {
+            message = translateError(data);
+          }
+        } catch { message = translateError(String(data)); }
+      }
+
+      Alert.alert('Error al registrar', message);
     } finally {
       setSubmitting(false);
     }
-  }, [
-    validateForm,
-    selectedActividadId,
-    fecha,
-    porcentaje,
-    horasTrabajadas,
-    observacion,
-    navigation,
-  ]);
+  }, [validateForm, selectedActividadId, fecha, porcentaje, horasTrabajadas, observacion, navigation]);
 
-  /**
-   * Renderiza el selector de actividad
-   */
+  // ── Slider helper ──────────────────────────────────────
+
+  const aumentar = useCallback(() => {
+    setPorcentaje((prev) => Math.min(100, prev + 5));
+    setErrors((prev) => ({ ...prev, porcentaje: undefined }));
+  }, []);
+
+  const disminuir = useCallback(() => {
+    setPorcentaje((prev) => {
+      const nuevo = Math.max(ultimoPorcentaje, prev - 5);
+      return nuevo;
+    });
+    setErrors((prev) => ({ ...prev, porcentaje: undefined }));
+  }, [ultimoPorcentaje]);
+
+  const setPreset = useCallback((value) => {
+    if (value < ultimoPorcentaje) {
+      Alert.alert(
+        'No puedes retroceder',
+        `El último avance registrado es ${ultimoPorcentaje}%. No puedes bajarlo a ${value}%.`
+      );
+      return;
+    }
+    setPorcentaje(value);
+    setErrors((prev) => ({ ...prev, porcentaje: undefined }));
+  }, [ultimoPorcentaje]);
+
+  // ── Renderers ──────────────────────────────────────────
+
   const renderActividadSelector = () => (
     <Card variant="outlined" style={styles.selectorCard}>
       <Text style={styles.selectorLabel}>Actividad *</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.selectorScroll}
-      >
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorScroll}>
         {actividades.map((actividad) => (
           <TouchableOpacity
             key={actividad.id}
-            style={[
-              styles.selectorChip,
-              selectedActividadId === String(actividad.id) && styles.selectorChipActive,
-            ]}
-            onPress={() => setSelectedActividadId(String(actividad.id))}
+            style={[styles.selectorChip, selectedActividadId === String(actividad.id) && styles.selectorChipActive]}
+            onPress={() => handleActividadChange(actividad.id)}
           >
             <Text
-              style={[
-                styles.selectorChipText,
-                selectedActividadId === String(actividad.id) && styles.selectorChipTextActive,
-              ]}
+              style={[styles.selectorChipText, selectedActividadId === String(actividad.id) && styles.selectorChipTextActive]}
               numberOfLines={1}
             >
               {actividad.nombre || actividad.titulo}
@@ -184,112 +300,91 @@ const BitacoraScreen = () => {
           </TouchableOpacity>
         ))}
       </ScrollView>
-      {errors.actividad && (
-        <Text style={styles.errorText}>{errors.actividad}</Text>
-      )}
+      {errors.actividad && <Text style={styles.errorText}>{errors.actividad}</Text>}
     </Card>
   );
 
-  /**
-   * Renderiza el selector de fecha (simplificado)
-   */
   const renderFechaSelector = () => (
     <Card variant="outlined" style={styles.selectorCard}>
       <Text style={styles.selectorLabel}>Fecha *</Text>
       <View style={styles.fechaContainer}>
-        {/* Selector simplificado - en producción se usaría un DatePicker */}
         <TouchableOpacity
           style={styles.fechaButton}
           onPress={() => {
-            // Placeholder: en producción abriría un DatePicker
-            Alert.alert(
-              'Seleccionar fecha',
-              'Funcionalidad de DatePicker pendiente de implementar.',
-              [{ text: 'OK' }]
-            );
+            Alert.alert('Seleccionar fecha', 'Funcionalidad de DatePicker pendiente de implementar.', [{ text: 'OK' }]);
           }}
         >
           <Text style={styles.fechaText}>📅 {formatDate(fecha) || 'Seleccionar fecha'}</Text>
         </TouchableOpacity>
       </View>
-      {errors.fecha && (
-        <Text style={styles.errorText}>{errors.fecha}</Text>
-      )}
+      {errors.fecha && <Text style={styles.errorText}>{errors.fecha}</Text>}
     </Card>
   );
 
-  /**
-   * Renderiza el slider de porcentaje
-   */
   const renderPorcentajeSlider = () => (
     <Card variant="outlined" style={styles.selectorCard}>
-      <Text style={styles.selectorLabel}>Porcentaje de avance: {porcentaje}%</Text>
+      <Text style={styles.selectorLabel}>
+        Porcentaje de avance: {porcentaje}%
+      </Text>
+
+      {/* Info del último avance registrado */}
+      {ultimoPorcentaje > 0 && (
+        <View style={styles.ultimoBanner}>
+          <Text style={styles.ultimoBannerText}>
+            📌 Último avance registrado: {ultimoPorcentaje}% — no puedes bajarlo
+          </Text>
+        </View>
+      )}
+
       <View style={styles.sliderContainer}>
-        {/* Controles de incremento/decremento */}
-        <TouchableOpacity
-          style={styles.sliderButton}
-          onPress={() => setPorcentaje(Math.max(0, porcentaje - 5))}
-        >
-          <Text style={styles.sliderButtonText}>-</Text>
+        <TouchableOpacity style={styles.sliderButton} onPress={disminuir}>
+          <Text style={styles.sliderButtonText}>−</Text>
         </TouchableOpacity>
 
         <View style={styles.sliderTrack}>
           <View
             style={[
               styles.sliderFill,
-              {
-                width: `${porcentaje}%`,
-                backgroundColor:
-                  porcentaje >= 100
-                    ? colors.success
-                    : porcentaje >= 50
-                    ? colors.secondary
-                    : colors.warning,
-              },
+              { width: `${porcentaje}%` },
             ]}
           />
+          {/* Marca del mínimo */}
+          {ultimoPorcentaje > 0 && (
+            <View
+              style={[
+                styles.minMarker,
+                { left: `${ultimoPorcentaje}%` },
+              ]}
+            />
+          )}
         </View>
 
-        <TouchableOpacity
-          style={styles.sliderButton}
-          onPress={() => setPorcentaje(Math.min(100, porcentaje + 5))}
-        >
+        <TouchableOpacity style={styles.sliderButton} onPress={aumentar}>
           <Text style={styles.sliderButtonText}>+</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Presets rápidos */}
+      {/* Presets: solo los que son >= ultimoPorcentaje */}
       <View style={styles.presetsContainer}>
-        {[25, 50, 75, 100].map((value) => (
-          <TouchableOpacity
-            key={value}
-            style={[
-              styles.presetChip,
-              porcentaje === value && styles.presetChipActive,
-            ]}
-            onPress={() => setPorcentaje(value)}
-          >
-            <Text
-              style={[
-                styles.presetChipText,
-                porcentaje === value && styles.presetChipTextActive,
-              ]}
+        {[25, 50, 75, 100]
+          .filter((v) => v >= ultimoPorcentaje)
+          .map((value) => (
+            <TouchableOpacity
+              key={value}
+              style={[styles.presetChip, porcentaje === value && styles.presetChipActive]}
+              onPress={() => setPreset(value)}
             >
-              {value}%
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text style={[styles.presetChipText, porcentaje === value && styles.presetChipTextActive]}>
+                {value}%
+              </Text>
+            </TouchableOpacity>
+          ))}
       </View>
 
-      {errors.porcentaje && (
-        <Text style={styles.errorText}>{errors.porcentaje}</Text>
-      )}
+      {errors.porcentaje && <Text style={styles.errorText}>{errors.porcentaje}</Text>}
     </Card>
   );
 
-  /**
-   * Renderiza el input de horas trabajadas
-   */
   const renderHorasInput = () => (
     <Card variant="outlined" style={styles.selectorCard}>
       <Input
@@ -304,9 +399,6 @@ const BitacoraScreen = () => {
     </Card>
   );
 
-  /**
-   * Renderiza el textarea de observaciones
-   */
   const renderObservacionTextarea = () => (
     <Card variant="outlined" style={styles.selectorCard}>
       <Input
@@ -321,21 +413,21 @@ const BitacoraScreen = () => {
     </Card>
   );
 
-  // Estado de carga
+  // ── Estados ────────────────────────────────────────────
+
   if (loading) {
     return (
       <View style={styles.container}>
-        <Header title="Registrar Bitacora" />
+        <Header title="Registrar Bitácora" />
         <LoadingSpinner fullScreen message="Cargando actividades..." />
       </View>
     );
   }
 
-  // Estado de error
   if (error) {
     return (
       <View style={styles.container}>
-        <Header title="Registrar Bitacora" />
+        <Header title="Registrar Bitácora" />
         <EmptyState
           icon={<Text style={styles.emptyIcon}>⚠️</Text>}
           title="Error al cargar"
@@ -347,15 +439,14 @@ const BitacoraScreen = () => {
     );
   }
 
-  // No hay actividades disponibles
   if (actividades.length === 0) {
     return (
       <View style={styles.container}>
-        <Header title="Registrar bitacora" />
+        <Header title="Registrar Bitácora" />
         <EmptyState
           icon={<Text style={styles.emptyIcon}>📋</Text>}
           title="Sin actividades disponibles"
-          subtitle="No tienes actividades pendientes para registrar bitacora."
+          subtitle="No tenés actividades pendientes para registrar bitácora."
           actionLabel="Volver"
           onAction={() => navigation.goBack()}
         />
@@ -363,48 +454,51 @@ const BitacoraScreen = () => {
     );
   }
 
+  // ── Render ─────────────────────────────────────────────
+
   return (
     <View style={styles.container}>
-      <Header title="Registrar Bitacora" />
+      <Header title="Registrar Bitácora" />
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* Selector de actividad (solo si no se pasó como parámetro) */}
         {!initialActividadId && renderActividadSelector()}
 
-        {/* Selector de fecha */}
         {renderFechaSelector()}
 
-        {/* Slider de porcentaje */}
-        {renderPorcentajeSlider()}
+        {cargandoUltimo ? (
+          <Card variant="outlined" style={styles.selectorCard}>
+            <Text style={styles.cargandoText}>Cargando último avance...</Text>
+          </Card>
+        ) : (
+          renderPorcentajeSlider()
+        )}
 
-        {/* Input de horas */}
         {renderHorasInput()}
-
-        {/* Textarea de observaciones */}
         {renderObservacionTextarea()}
 
-        {/* Botón de envío */}
         <View style={styles.submitContainer}>
           <Button
             variant="primary"
             size="lg"
             fullWidth
-            title="Registrar Bitacora"
+            title={ultimoPorcentaje > 0 ? `Registrar avance` : 'Registrar avance'}
             onPress={handleSubmit}
             loading={submitting}
             disabled={submitting}
           />
         </View>
 
-        {/* Espaciado inferior */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
     </View>
   );
 };
+
+// ─── Styles ──────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
@@ -418,7 +512,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
   },
-  // Selector cards
   selectorCard: {
     marginBottom: spacing.md,
   },
@@ -427,6 +520,27 @@ const styles = StyleSheet.create({
     fontWeight: typography.semibold,
     color: colors.primary,
     marginBottom: spacing.sm,
+  },
+  cargandoText: {
+    fontSize: typography.sm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    paddingVertical: spacing.md,
+  },
+  // Último avance
+  ultimoBanner: {
+    backgroundColor: colors.warningLight,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.md,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.warning,
+  },
+  ultimoBannerText: {
+    fontSize: typography.sm,
+    color: colors.warningDark || colors.text,
+    fontWeight: typography.semibold,
   },
   // Selector de actividades
   selectorScroll: {
@@ -496,11 +610,22 @@ const styles = StyleSheet.create({
     height: 10,
     backgroundColor: colors.grayLighter,
     borderRadius: borderRadius.full,
-    overflow: 'hidden',
+    overflow: 'visible',
+    position: 'relative',
   },
   sliderFill: {
     height: '100%',
     borderRadius: borderRadius.full,
+    backgroundColor: colors.secondary,
+  },
+  minMarker: {
+    position: 'absolute',
+    top: -4,
+    width: 4,
+    height: 18,
+    backgroundColor: colors.warning,
+    borderRadius: 2,
+    marginLeft: -2,
   },
   // Presets
   presetsContainer: {
@@ -530,9 +655,10 @@ const styles = StyleSheet.create({
   },
   // Error
   errorText: {
-    fontSize: typography.xs,
+    fontSize: typography.sm,
     color: colors.error,
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
+    fontWeight: typography.medium,
   },
   // Submit
   submitContainer: {
@@ -540,10 +666,6 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: spacing.xxxl,
-  },
-  backIcon: {
-    fontSize: typography.xl,
-    color: colors.textOnPrimary,
   },
   emptyIcon: {
     fontSize: 48,

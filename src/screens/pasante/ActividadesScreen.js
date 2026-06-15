@@ -206,48 +206,8 @@ const ActividadesScreen = () => {
 
     return (
       <View style={styles.estadoContainer}>
-        {/* Resumen general */}
-        <Card variant="outlined" style={styles.estadoCard}>
-          <Text style={styles.estadoCardTitle}>Resumen general</Text>
-          <View style={styles.estadoStats}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{estado.total || 0}</Text>
-              <Text style={styles.statLabel}>Total</Text>
-            </View>
-            <View style={[styles.statItem, styles.statDivider]}>
-              <Text style={[styles.statNumber, { color: colors.success }]}>
-                {estado.completadas || 0}
-              </Text>
-              <Text style={styles.statLabel}>Completadas</Text>
-            </View>
-            <View style={[styles.statItem, styles.statDivider]}>
-              <Text style={[styles.statNumber, { color: colors.secondary }]}>
-                {estado.enProgreso || 0}
-              </Text>
-              <Text style={styles.statLabel}>En progreso</Text>
-            </View>
-            <View style={[styles.statItem, styles.statDivider]}>
-              <Text style={[styles.statNumber, { color: colors.warning }]}>
-                {estado.pendientes || 0}
-              </Text>
-              <Text style={styles.statLabel}>Pendientes</Text>
-            </View>
-          </View>
-        </Card>
-
-        {/* Porcentaje de avance */}
-        {estado.porcentajeGeneral !== undefined && (
-          <Card variant="outlined" style={styles.estadoCard}>
-            <Text style={styles.estadoCardTitle}>Avance total</Text>
-            <ProgressBar porcentaje={estado.porcentajeGeneral} />
-            <Text style={styles.estadoAvanceText}>
-              Has completado el {Math.round(estado.porcentajeGeneral || 0)}% de tus actividades
-            </Text>
-          </Card>
-        )}
-
         {/* Próximos vencimientos */}
-        {estado.proximosVencimientos && estado.proximosVencimientos.length > 0 && (
+        {estado.proximosVencimientos && estado.proximosVencimientos.length > 0 ? (
           <Card variant="outlined" style={styles.estadoCard}>
             <Text style={styles.estadoCardTitle}>Próximos vencimientos</Text>
             {estado.proximosVencimientos.map((item, index) => (
@@ -261,6 +221,12 @@ const ActividadesScreen = () => {
               </View>
             ))}
           </Card>
+        ) : (
+          <EmptyState
+            icon={<Text style={styles.emptyIcon}>📊</Text>}
+            title="Sin vencimientos"
+            subtitle="No tenés actividades próximas a vencer."
+          />
         )}
       </View>
     );

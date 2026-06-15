@@ -8,7 +8,7 @@
  * - Botones "Registrar Avance" y "Subir Evidencia"
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,26 +17,47 @@ import {
   TouchableOpacity,
   RefreshControl,
   StyleSheet,
+  Linking,
+  Alert,
+  Modal,
+  Image,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, borderRadius, typography, shadows } from '../../theme';
 import { Button, Header, Badge, Card, EmptyState, LoadingSpinner } from '../../components/ui';
 import { getMisActividades } from '../../api/actividades';
 import { getBitacoras } from '../../api/bitacoras';
+import { getEvidencias } from '../../api/evidencias';
 import { formatDate } from '../../utils/dateUtils';
+import API_CONFIG from '../../config/api';
+
+/**
+ * Construye la URL pública de storage a partir de la ruta relativa del archivo.
+ * 
+ * Por qué no usamos archivo_url del backend?
+ * El backend devuelve la URL con el dominio interno (.test) que NO resuelve
+ * desde el celular. Construimos la URL usando la misma IP que usa la API.
+ */
+const getStorageUrl = (archivoRelativo) => {
+  if (!archivoRelativo) return null;
+  const base = API_CONFIG.BASE_URL.replace(/\/api$/, '');
+  return `${base}/storage/${archivoRelativo}`;
+};
 
 const ActividadDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
 
-  const { actividadId } = route.params || {};
+  const { actividadId, fromCalendar } = route.params || {};
 
   // States
   const [actividad, setActividad] = useState(null);
   const [bitacoras, setBitacoras] = useState([]);
+  const [evidencias, setEvidencias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [viewerImage, setViewerImage] = useState(null); // null = cerrado, { url } = abierto
 
   /**
    * Carga el detalle de la actividad y sus bitácoras
@@ -61,16 +82,37 @@ const ActividadDetailScreen = () => {
       );
       setActividad(found || null);
 
-      // Cargar bitácoras
+      // ── Cargar bitácoras ───────────────────────────────
       const bitacorasData = await getBitacoras();
+
+      // El backend puede devolver: array directo, { data: [...] }, { bitacoras: [...] }, etc.
       const allBitacoras = Array.isArray(bitacorasData)
         ? bitacorasData
-        : bitacorasData.data || [];
-      // Filtrar bitácoras de esta actividad
-      const filtered = allBitacoras.filter(
-        (b) => String(b.actividadId || b.actividad_id) === String(actividadId)
-      );
+        : bitacorasData?.data || bitacorasData?.bitacoras || bitacorasData?.bitacorasCollection || [];
+
+      // Usar el ID real de la actividad encontrada para filtrar
+      const targetId = found?.id || actividadId;
+
+      // Filtrar bitácoras de esta actividad — probar múltiples nombres de campo
+      const filtered = allBitacoras.filter((b) => {
+        const bid =
+          b.actividadId ?? b.actividad_id ?? b.idActividad ?? b.id_actividad ?? b.actividadId;
+        return String(bid) === String(targetId);
+      });
       setBitacoras(filtered);
+
+      // ── Cargar evidencias ───────────────────────────────
+      try {
+        const evData = await getEvidencias(targetId);
+        const allEvidencias = Array.isArray(evData)
+          ? evData
+          : evData?.data || evData?.evidencias || [];
+        setEvidencias(allEvidencias);
+      } catch (evErr) {
+        console.error('Error al cargar evidencias:', evErr);
+        // No bloqueamos — si falla, simplemente no mostramos evidencias
+        setEvidencias([]);
+      }
     } catch (err) {
       console.error('Error al cargar detalle de actividad:', err);
       setError('No se pudo cargar el detalle de la actividad.');
@@ -80,10 +122,12 @@ const ActividadDetailScreen = () => {
     }
   }, [actividadId]);
 
-  // Carga inicial
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  // Carga inicial y al volver de otras pantallas (ej: subir evidencia, registrar bitácora)
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [fetchData])
+  );
 
   /**
    * Pull-to-refresh
@@ -154,6 +198,27 @@ const ActividadDetailScreen = () => {
     ),
     []
   );
+
+  /**
+   * Porcentaje de avance — se calcula desde la bitácora más reciente.
+   * Si no hay bitácoras, usa el valor de la actividad como fallback.
+   */
+  const porcentajeAvance = useMemo(() => {
+    if (bitacoras.length === 0) {
+      return actividad?.porcentaje ?? actividad?.progreso ?? 0;
+    }
+
+    // Ordenar por fecha descendente y tomar la más reciente con porcentaje
+    const sorted = [...bitacoras]
+      .filter((b) => b.porcentaje !== undefined && b.porcentaje !== null)
+      .sort((a, b) => {
+        const dateA = new Date(a.fecha || a.created_at || 0);
+        const dateB = new Date(b.fecha || b.created_at || 0);
+        return dateB - dateA;
+      });
+
+    return sorted[0]?.porcentaje ?? actividad?.porcentaje ?? actividad?.progreso ?? 0;
+  }, [bitacoras, actividad]);
 
   /**
    * Renderiza una bitácora en la lista
@@ -234,7 +299,7 @@ const ActividadDetailScreen = () => {
     <View style={styles.container}>
       <Header title="Detalle de Actividad" />
       <FlatList
-        data={bitacoras}
+        data={fromCalendar ? [] : bitacoras}
         keyExtractor={(item, index) => String(item.id || item.bitacoraId || item.bitacora_id || index)}
         renderItem={renderBitacoraItem}
         ListHeaderComponent={
@@ -290,15 +355,16 @@ const ActividadDetailScreen = () => {
             <Card variant="outlined" style={styles.section}>
               <Text style={styles.sectionTitle}>Progreso actual</Text>
               <ProgressBar
-                porcentaje={actividad.porcentaje || actividad.progreso || 0}
+                porcentaje={porcentajeAvance}
               />
               <Text style={styles.progresoDetalle}>
                 Has completado el{' '}
-                {Math.round(actividad.porcentaje || actividad.progreso || 0)}% de esta actividad
+                {Math.round(porcentajeAvance)}% de esta actividad
               </Text>
             </Card>
 
-            {/* Botones de acción */}
+            {/* Botones de acción — solo si NO viene del calendario */}
+            {!fromCalendar && (
             <View style={styles.actionButtons}>
               <Button
                 variant="primary"
@@ -318,16 +384,76 @@ const ActividadDetailScreen = () => {
                 style={styles.secondaryButton}
               />
             </View>
+            )}
 
-            {/* Lista de bitácoras */}
+            {/* Evidencias subidas */}
+            {!fromCalendar && evidencias.length > 0 && (
+              <View style={styles.evidenciasSection}>
+                <Text style={styles.bitacorasTitle}>
+                  Ver evidencias ({evidencias.length})
+                </Text>
+                {evidencias.map((ev, idx) => {
+                  const esFoto = ev.tipo === 'foto';
+                  const tipoEtiqueta = esFoto ? 'Foto' : 'Documento';
+                  const emoji = esFoto ? '🖼️' : '📄';
+
+                  return (
+                    <TouchableOpacity
+                      key={ev.idEvidencia || ev.id || `ev-${idx}`}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        const imageUrl = getStorageUrl(ev.archivo);
+                        if (!imageUrl) return;
+                        if (esFoto) {
+                          // Abrir imagen dentro de la app con Modal
+                          setViewerImage({ url: imageUrl });
+                        } else {
+                          // Documento: abrir en navegador (RN no renderiza PDF nativamente)
+                          Linking.openURL(imageUrl).catch(() =>
+                            Alert.alert('Error', 'No se pudo abrir el documento.')
+                          );
+                        }
+                      }}
+                    >
+                      <Card variant="outlined" style={styles.evidenciaCard}>
+                        <View style={styles.evidenciaRow}>
+                          <Text style={styles.evidenciaIcon}>{emoji}</Text>
+                          <View style={styles.evidenciaInfo}>
+                            <Text style={styles.evidenciaName} numberOfLines={1}>
+                              {tipoEtiqueta}
+                            </Text>
+                            {ev.descripcion ? (
+                              <Text style={styles.evidenciaDesc} numberOfLines={2}>
+                                {ev.descripcion}
+                              </Text>
+                            ) : null}
+                            {ev.created_at ? (
+                              <Text style={styles.evidenciaDate}>
+                                {formatDate(ev.created_at)}
+                              </Text>
+                            ) : null}
+                          </View>
+                          <Text style={styles.evidenciaArrow}>›</Text>
+                        </View>
+                      </Card>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Lista de bitácoras — solo si NO viene del calendario */}
+            {!fromCalendar && (
             <View style={styles.bitacorasHeader}>
               <Text style={styles.bitacorasTitle}>
                 Bitácoras ({bitacoras.length})
               </Text>
             </View>
+            )}
           </View>
         }
         ListEmptyComponent={
+          fromCalendar ? null : (
           <EmptyState
             icon={<Text style={styles.emptyIcon}>📓</Text>}
             title="Sin bitácoras registradas"
@@ -335,6 +461,7 @@ const ActividadDetailScreen = () => {
             actionLabel="Registrar primer avance"
             onAction={handleRegistrarAvance}
           />
+          )
         }
         contentContainerStyle={styles.listContent}
         refreshControl={
@@ -347,6 +474,31 @@ const ActividadDetailScreen = () => {
         }
         showsVerticalScrollIndicator={false}
       />
+
+      {/* ── Visor de imagen full-screen (solo fotos) ── */}
+      <Modal
+        visible={!!viewerImage}
+        transparent={false}
+        animationType="fade"
+        onRequestClose={() => setViewerImage(null)}
+      >
+        <View style={styles.viewerContainer}>
+          <TouchableOpacity
+            style={styles.viewerCloseButton}
+            onPress={() => setViewerImage(null)}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Text style={styles.viewerCloseText}>✕</Text>
+          </TouchableOpacity>
+          {viewerImage?.url && (
+            <Image
+              source={{ uri: viewerImage.url }}
+              style={styles.viewerImage}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -492,12 +644,80 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     lineHeight: typography.sm * typography.normal,
   },
+  // Evidencias
+  evidenciasSection: {
+    marginBottom: spacing.xl,
+  },
+  evidenciaCard: {
+    marginBottom: spacing.sm,
+  },
+  evidenciaRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  evidenciaIcon: {
+    fontSize: 24,
+    marginRight: spacing.md,
+    marginTop: 2,
+  },
+  evidenciaInfo: {
+    flex: 1,
+  },
+  evidenciaName: {
+    fontSize: typography.md,
+    fontWeight: typography.semibold,
+    color: colors.text,
+    marginBottom: 2,
+  },
+  evidenciaDesc: {
+    fontSize: typography.sm,
+    color: colors.textSecondary,
+    marginBottom: 2,
+  },
+  evidenciaDate: {
+    fontSize: typography.xs,
+    color: colors.grayMedium,
+  },
+  evidenciaArrow: {
+    fontSize: 22,
+    color: colors.grayMedium,
+    marginLeft: spacing.sm,
+    alignSelf: 'center',
+  },
   backIcon: {
     fontSize: typography.xl,
     color: colors.textOnPrimary,
   },
   emptyIcon: {
     fontSize: 48,
+  },
+  // Visor de imagen full-screen
+  viewerContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewerCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewerCloseText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  viewerImage: {
+    width: '100%',
+    height: '100%',
   },
 });
 

@@ -1,4 +1,4 @@
-import { ActivityIndicator, View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { ActivityIndicator, View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useAuth } from "../context/AuthContext";
@@ -39,7 +39,11 @@ const Stack = createNativeStackNavigator();
 const LoadingScreen = () => (
   <View style={styles.loadingContainer}>
     <View style={styles.loadingCard}>
-      <Ionicons name="school" size={56} color={colors.white} />
+      <Image
+        source={require("../../assets/logo.png")}
+        style={styles.loadingLogo}
+        resizeMode="contain"
+      />
       <Text style={styles.loadingTitle}>Pasantías</Text>
       <Text style={styles.loadingSubtitle}>Cargando...</Text>
     </View>
@@ -145,6 +149,11 @@ const styles = StyleSheet.create({
   loadingCard: {
     alignItems: "center",
     marginBottom: 32,
+  },
+  loadingLogo: {
+    width: 290,
+    height: 290,
+    marginBottom: 16,
   },
   loadingTitle: {
     fontSize: typography.title,

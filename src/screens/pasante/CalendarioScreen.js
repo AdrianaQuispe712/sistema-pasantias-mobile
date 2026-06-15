@@ -335,6 +335,7 @@ const CalendarioScreen = () => {
               onPress={() =>
                 navigation.navigate('ActividadDetail', {
                   actividadId: evento.actividadId || evento.actividad_id || evento.id,
+                  fromCalendar: true,
                 })
               }
             >
@@ -400,6 +401,7 @@ const CalendarioScreen = () => {
             onPress={() =>
               navigation.navigate('ActividadDetail', {
                 actividadId: evento.actividadId || evento.actividad_id || evento.id,
+                fromCalendar: true,
               })
             }
           >

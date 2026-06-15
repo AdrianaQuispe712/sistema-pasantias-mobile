@@ -123,19 +123,28 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true, role: data.role };
     } catch (error) {
-      // Log completo para debug — ver esto en la consola de Expo
       console.error("LOGIN ERROR:", {
         message: error.message,
-        code: error.code,
-        response: error.response?.data,
         status: error.response?.status,
-        config: error.config?.url,
+        data: error.response?.data,
       });
 
-      const message =
-        error.response?.data?.message ||
-        error.message ||
-        "Error al iniciar sesión";
+      // Traducir errores técnicos a mensajes amigables
+      let message;
+
+      if (error.response?.status === 401 || error.response?.status === 422) {
+        // Credenciales incorrectas
+        message = 'Credenciales incorrectas. Verificá tu email y contraseña.';
+      } else if (error.message?.includes('Network') || error.code === 'ERR_NETWORK') {
+        message = 'Error de conexión. Verificá tu internet.';
+      } else {
+        message = error.response?.data?.message || error.message || 'Error al iniciar sesión';
+        // Si el mensaje viene en inglés del backend, dar uno genérico
+        if (message.includes('credentials') || message.includes('Credentials')) {
+          message = 'Credenciales incorrectas. Verificá tu email y contraseña.';
+        }
+      }
+
       return { success: false, message };
     }
   };
