@@ -22,6 +22,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { colors, spacing, borderRadius, typography, shadows } from '../../theme';
 import { Button, Header, Badge, Card, LoadingSpinner, EmptyState } from '../../components/ui';
 import { getOferta, postularse } from '../../api/ofertas';
+import { formatDate } from '../../utils/dateUtils';
 
 const OfertaDetailScreen = () => {
   const navigation = useNavigation();
@@ -115,11 +116,7 @@ const OfertaDetailScreen = () => {
   if (loading) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Detalle de Oferta"
-          leftIcon={<Text style={styles.backIcon}>←</Text>}
-          onLeftPress={() => navigation.goBack()}
-        />
+        <Header title="Detalle de Oferta" />
         <LoadingSpinner fullScreen message="Cargando detalle..." />
       </View>
     );
@@ -129,11 +126,7 @@ const OfertaDetailScreen = () => {
   if (error) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Detalle de Oferta"
-          leftIcon={<Text style={styles.backIcon}>←</Text>}
-          onLeftPress={() => navigation.goBack()}
-        />
+        <Header title="Detalle de Oferta" />
         <EmptyState
           icon={<Text style={styles.emptyIcon}>⚠️</Text>}
           title="Error al cargar"
@@ -149,11 +142,7 @@ const OfertaDetailScreen = () => {
   if (!oferta) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Detalle de Oferta"
-          leftIcon={<Text style={styles.backIcon}>←</Text>}
-          onLeftPress={() => navigation.goBack()}
-        />
+        <Header title="Detalle de Oferta" />
         <EmptyState
           icon={<Text style={styles.emptyIcon}>🔍</Text>}
           title="Oferta no encontrada"
@@ -167,12 +156,7 @@ const OfertaDetailScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Header
-        title="Detalle de Oferta"
-        leftIcon={<Text style={styles.backIcon}>←</Text>}
-        onLeftPress={() => navigation.goBack()}
-      />
-
+      <Header title="Detalle de Oferta" />
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
@@ -240,13 +224,13 @@ const OfertaDetailScreen = () => {
               {oferta.fechaInicio && (
                 <View style={styles.dateItem}>
                   <Text style={styles.dateLabel}>Inicio</Text>
-                  <Text style={styles.dateValue}>{oferta.fechaInicio}</Text>
+                  <Text style={styles.dateValue}>{formatDate(oferta.fechaInicio)}</Text>
                 </View>
               )}
               {oferta.fechaFin && (
                 <View style={styles.dateItem}>
                   <Text style={styles.dateLabel}>Fin</Text>
-                  <Text style={styles.dateValue}>{oferta.fechaFin}</Text>
+                  <Text style={styles.dateValue}>{formatDate(oferta.fechaFin)}</Text>
                 </View>
               )}
             </View>

@@ -14,27 +14,33 @@ import {
   FlatList,
   RefreshControl,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
-import { Header, Card, Avatar, Badge, EmptyState, LoadingSpinner } from '../../components/ui';
+import { Card, Avatar, Badge, EmptyState, LoadingSpinner } from '../../components/ui';
 import { getPasantes } from '../../api/jefePasantes';
 
 /**
  * Badge variant según estado del pasante
+ * Estados reales del monolito: pendiente, aceptado, completado, abandono, rechazado
+ * Nota: el backend retorna 'activo' hardcodeado — mapeamos a 'aceptado'
+ * porque todos los pasantes de este endpoint tienen inscripción aceptada
  */
 const getStatusBadge = (estado) => {
   switch (estado) {
-    case 'activo':
-    case 'active':
-      return { variant: 'success', label: 'Activo' };
-    case 'inactivo':
-    case 'inactive':
-      return { variant: 'neutral', label: 'Inactivo' };
+    case 'aceptado':
+    case 'activo':   // backend hardcodea 'activo' para inscripciones aceptadas
+      return { variant: 'success', label: 'Aceptado' };
     case 'pendiente':
-    case 'pending':
       return { variant: 'warning', label: 'Pendiente' };
+    case 'completado':
+      return { variant: 'info', label: 'Completado' };
+    case 'abandono':
+      return { variant: 'error', label: 'Abandono' };
+    case 'rechazado':
+      return { variant: 'error', label: 'Rechazado' };
     default:
-      return { variant: 'info', label: estado || 'Activo' };
+      return { variant: 'neutral', label: estado || 'Sin estado' };
   }
 };
 
@@ -52,8 +58,7 @@ const PasantesScreen = ({ navigation }) => {
       setError(null);
       const data = await getPasantes();
       setPasantes(Array.isArray(data) ? data : data?.data || []);
-    } catch (err) {
-      console.error('Error fetching pasantes:', err);
+    } catch {
       setError('No se pudieron cargar los pasantes. Intente de nuevo.');
     } finally {
       setLoading(false);
@@ -127,7 +132,8 @@ const PasantesScreen = ({ navigation }) => {
   if (loading && !refreshing) {
     return (
       <View style={styles.screen}>
-        <Header title="Pasantes" subtitle="Pasantes asignados" />
+        <View style={styles.statusBarSpacer} />
+        <Text style={styles.screenSubtitle}>Pasantes asignados</Text>
         <LoadingSpinner fullScreen message="Cargando pasantes..." />
       </View>
     );
@@ -138,7 +144,8 @@ const PasantesScreen = ({ navigation }) => {
   if (error && !refreshing && pasantes.length === 0) {
     return (
       <View style={styles.screen}>
-        <Header title="Pasantes" subtitle="Pasantes asignados" />
+        <View style={styles.statusBarSpacer} />
+        <Text style={styles.screenSubtitle}>Pasantes asignados</Text>
         <EmptyState
           icon={<Text style={styles.errorIcon}>⚠️</Text>}
           title="Error"
@@ -155,7 +162,8 @@ const PasantesScreen = ({ navigation }) => {
   if (!loading && pasantes.length === 0) {
     return (
       <View style={styles.screen}>
-        <Header title="Pasantes" subtitle="Pasantes asignados" />
+        <View style={styles.statusBarSpacer} />
+        <Text style={styles.screenSubtitle}>Pasantes asignados</Text>
         <EmptyState
           icon={<Text style={styles.emptyIcon}>👥</Text>}
           title="Sin pasantes"
@@ -171,7 +179,8 @@ const PasantesScreen = ({ navigation }) => {
 
   return (
     <View style={styles.screen}>
-      <Header title="Pasantes" subtitle="Pasantes asignados" />
+      <View style={styles.statusBarSpacer} />
+      <Text style={styles.screenSubtitle}>Pasantes asignados</Text>
 
       <FlatList
         data={pasantes}
@@ -198,6 +207,16 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.backgroundSecondary,
+  },
+  statusBarSpacer: {
+    height: Platform.OS === 'ios' ? spacing.xxxl : 40,
+  },
+  screenSubtitle: {
+    fontSize: typography.sm,
+    fontWeight: typography.medium,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
   },
   listContent: {
     padding: spacing.lg,

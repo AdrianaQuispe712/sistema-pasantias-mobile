@@ -19,8 +19,9 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { colors, spacing, borderRadius, typography, shadows } from '../../theme';
-import { Card, Header, Badge, EmptyState, LoadingSpinner } from '../../components/ui';
+import { Card, Badge, EmptyState, LoadingSpinner } from '../../components/ui';
 import { getMisActividades, getEstado } from '../../api/actividades';
+import { formatDate } from '../../utils/dateUtils';
 
 const ActividadesScreen = () => {
   const navigation = useNavigation();
@@ -46,7 +47,16 @@ const ActividadesScreen = () => {
       setActividades(
         Array.isArray(actividadesData) ? actividadesData : actividadesData.data || []
       );
-      setEstado(estadoData);
+      // Normalizar estado: el backend puede devolver camelCase o snake_case
+      const raw = estadoData?.data || estadoData || {};
+      setEstado({
+        total: raw.total ?? raw.total_actividades ?? 0,
+        completadas: raw.completadas ?? raw.actividades_completadas ?? 0,
+        enProgreso: raw.enProgreso ?? raw.en_progreso ?? raw.actividades_en_progreso ?? 0,
+        pendientes: raw.pendientes ?? raw.actividades_pendientes ?? 0,
+        porcentajeGeneral: raw.porcentajeGeneral ?? raw.porcentaje_general ?? raw.porcentaje ?? 0,
+        proximosVencimientos: raw.proximosVencimientos ?? raw.proximos_vencimientos ?? [],
+      });
     } catch (err) {
       console.error('Error al cargar actividades:', err);
       setError('No se pudieron cargar las actividades.');
@@ -162,12 +172,12 @@ const ActividadesScreen = () => {
           <View style={styles.actividadFechas}>
             {actividad.fechaInicio && (
               <Text style={styles.fechaText}>
-                📅 {actividad.fechaInicio}
+                📅 {formatDate(actividad.fechaInicio)}
               </Text>
             )}
             {actividad.fechaFin && (
               <Text style={styles.fechaText}>
-                → {actividad.fechaFin}
+                → {formatDate(actividad.fechaFin)}
               </Text>
             )}
           </View>
@@ -246,7 +256,7 @@ const ActividadesScreen = () => {
                 <Badge
                   variant="warning"
                   size="sm"
-                  label={`Vence: ${item.fechaFin}`}
+                  label={`Vence: ${formatDate(item.fechaFin)}`}
                 />
               </View>
             ))}
@@ -260,10 +270,6 @@ const ActividadesScreen = () => {
   if (loading && !refreshing) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Actividades"
-          subtitle="Gestión de actividades"
-        />
         <LoadingSpinner fullScreen message="Cargando actividades..." />
       </View>
     );
@@ -273,10 +279,6 @@ const ActividadesScreen = () => {
   if (error && !refreshing) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Actividades"
-          subtitle="Gestión de actividades"
-        />
         <EmptyState
           icon={<Text style={styles.emptyIcon}>⚠️</Text>}
           title="Error al cargar"
@@ -290,10 +292,6 @@ const ActividadesScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Header
-        title="Actividades"
-        subtitle="Gestión de actividades"
-      />
 
       {/* Tabs */}
       <View style={styles.tabsContainer}>

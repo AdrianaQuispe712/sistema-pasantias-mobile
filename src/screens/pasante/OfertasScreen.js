@@ -3,10 +3,16 @@
  *
  * Muestra todas las ofertas disponibles para el pasante con:
  * - Tarjetas con información de la empresa, título, modalidad y vacantes
- * - Barra de búsqueda y filtros
+ * - Barra de búsqueda por empresa (filtrado incremental)
+ * - Filtros de modalidad
  * - Pull-to-refresh
  * - Navegación al detalle de la oferta
  * - Botón de "Postularse"
+ *
+ * IMPORTANTE: La barra de búsqueda está FUERA del FlatList para que
+ * el TextInput NO se desmonte al filtrar. Si estuviera como
+ * ListHeaderComponent, cada cambio de searchQuery recrea el header
+ * y el teclado se cierra.
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -15,19 +21,20 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
+  ScrollView,
   RefreshControl,
   StyleSheet,
   TextInput,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { colors, spacing, borderRadius, typography, shadows } from '../../theme';
-import { Button, Card, Header, Badge, EmptyState, LoadingSpinner } from '../../components/ui';
+import { Button, Card, Badge, EmptyState, LoadingSpinner } from '../../components/ui';
 import { getOfertas } from '../../api/ofertas';
 
 const OfertasScreen = () => {
   const navigation = useNavigation();
 
-  // States
+  // ── States ──────────────────────────────────────────────
   const [ofertas, setOfertas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -37,6 +44,8 @@ const OfertasScreen = () => {
 
   // Modalidades disponibles para filtro
   const modalidades = ['Todas', 'Presencial', 'Remoto', 'Híbrido'];
+
+  // ── API ──────────────────────────────────────────────────
 
   /**
    * Carga las ofertas desde la API
@@ -60,17 +69,19 @@ const OfertasScreen = () => {
     fetchOfertas();
   }, [fetchOfertas]);
 
-  /**
-   * Pull-to-refresh
-   */
+  // ── Pull-to-refresh ─────────────────────────────────────
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchOfertas();
   }, [fetchOfertas]);
 
-  /**
-   * Filtrado de ofertas por búsqueda y modalidad
-   */
+  // ── Filtrado incremental ────────────────────────────────
+  //
+  // Se filtra por EMPRESA como criterio principal.
+  // También matchea título como secundario para ayudar cuando
+  // el usuario busca por nombre de cargo.
+
   const filteredOfertas = useMemo(() => {
     let result = ofertas;
 
@@ -81,23 +92,30 @@ const OfertasScreen = () => {
       );
     }
 
-    // Filtro por búsqueda de texto
+    // Filtro por búsqueda de texto (empresa como prioridad)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
-      result = result.filter(
-        (o) =>
-          o.titulo?.toLowerCase().includes(query) ||
-          o.empresa?.nombre?.toLowerCase().includes(query) ||
-          o.descripcion?.toLowerCase().includes(query)
-      );
+      result = result.filter((o) => {
+        // Empresa es el criterio principal
+        const nombreEmpresa = o.empresa?.nombre?.toLowerCase() || '';
+        if (nombreEmpresa.includes(query)) return true;
+
+        // Secundario: título y descripción
+        const titulo = o.titulo?.toLowerCase() || '';
+        if (titulo.includes(query)) return true;
+
+        const descripcion = o.descripcion?.toLowerCase() || '';
+        if (descripcion.includes(query)) return true;
+
+        return false;
+      });
     }
 
     return result;
   }, [ofertas, searchQuery, selectedModality]);
 
-  /**
-   * Navega al detalle de una oferta
-   */
+  // ── Navegación ──────────────────────────────────────────
+
   const handleOfertaPress = useCallback(
     (oferta) => {
       navigation.navigate('OfertaDetail', { ofertaId: oferta.id });
@@ -105,9 +123,6 @@ const OfertasScreen = () => {
     [navigation]
   );
 
-  /**
-   * Navega a postularse a una oferta
-   */
   const handlePostularse = useCallback(
     (oferta) => {
       navigation.navigate('OfertaDetail', {
@@ -118,8 +133,17 @@ const OfertasScreen = () => {
     [navigation]
   );
 
+  // ── Limpiar filtros ─────────────────────────────────────
+
+  const handleClearFilters = useCallback(() => {
+    setSearchQuery('');
+    setSelectedModality('Todas');
+  }, []);
+
+  // ── Renderers ───────────────────────────────────────────
+
   /**
-   * Renderiza un ítem de oferta
+   * Tarjeta de oferta individual
    */
   const renderOfertaItem = useCallback(
     ({ item: oferta }) => (
@@ -136,11 +160,7 @@ const OfertasScreen = () => {
               {oferta.empresa?.nombre || 'Empresa'}
             </Text>
             {oferta.modalidad && (
-              <Badge
-                variant="info"
-                size="sm"
-                label={oferta.modalidad}
-              />
+              <Badge variant="info" size="sm" label={oferta.modalidad} />
             )}
           </View>
         </View>
@@ -191,74 +211,9 @@ const OfertasScreen = () => {
   );
 
   /**
-   * Renderiza el separador entre elementos
+   * Estado vacío de la lista
    */
-  const ItemSeparator = () => <View style={styles.separator} />;
-
-  /**
-   * Renderiza el header de la lista con barra de búsqueda y filtros
-   */
-  const ListHeader = () => (
-    <View style={styles.listHeader}>
-      {/* Barra de búsqueda */}
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Buscar ofertas..."
-          placeholderTextColor={colors.grayLight}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          returnKeyType="search"
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity
-            style={styles.clearSearch}
-            onPress={() => setSearchQuery('')}
-          >
-            <Text style={styles.clearSearchText}>✕</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Filtros de modalidad */}
-      <FlatList
-        data={modalidades}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(item) => item}
-        contentContainerStyle={styles.filtersContainer}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              selectedModality === item && styles.filterChipActive,
-            ]}
-            onPress={() => setSelectedModality(item)}
-          >
-            <Text
-              style={[
-                styles.filterChipText,
-                selectedModality === item && styles.filterChipTextActive,
-              ]}
-            >
-              {item}
-            </Text>
-          </TouchableOpacity>
-        )}
-      />
-
-      {/* Contador de resultados */}
-      <Text style={styles.resultsCount}>
-        {filteredOfertas.length}{' '}
-        {filteredOfertas.length === 1 ? 'oferta encontrada' : 'ofertas encontradas'}
-      </Text>
-    </View>
-  );
-
-  /**
-   * Renderiza el estado vacío
-   */
-  const renderEmpty = () => {
+  const renderEmpty = useCallback(() => {
     if (loading) return null;
 
     return (
@@ -271,35 +226,29 @@ const OfertasScreen = () => {
             : 'Actualmente no hay ofertas de pasantía disponibles.'
         }
         actionLabel="Limpiar filtros"
-        onAction={() => {
-          setSearchQuery('');
-          setSelectedModality('Todas');
-        }}
+        onAction={handleClearFilters}
       />
     );
-  };
+  }, [loading, searchQuery, selectedModality, handleClearFilters]);
 
-  // Estado de carga inicial
+  /**
+   * Separador entre tarjetas
+   */
+  const ItemSeparator = useCallback(() => <View style={styles.separator} />, []);
+
+  // ── Estados de carga / error ────────────────────────────
+
   if (loading && !refreshing) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Ofertas"
-          subtitle="Pasantías disponibles"
-        />
         <LoadingSpinner fullScreen message="Cargando ofertas..." />
       </View>
     );
   }
 
-  // Estado de error
   if (error && !refreshing) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Ofertas"
-          subtitle="Pasantías disponibles"
-        />
         <EmptyState
           icon={<Text style={styles.emptyIcon}>⚠️</Text>}
           title="Error al cargar"
@@ -311,18 +260,77 @@ const OfertasScreen = () => {
     );
   }
 
+  // ── Render principal ────────────────────────────────────
+  //
+  // ARQUITECTURA: La barra de búsqueda vive FUERA del FlatList.
+  // Esto es CRÍTICO para que el teclado no se cierre al escribir.
+  // Si estuviera como ListHeaderComponent, cada keystroke recrea
+  // el componente y el TextInput pierde el foco.
+
   return (
     <View style={styles.container}>
-      <Header
-        title="Ofertas"
-        subtitle={`${filteredOfertas.length} disponibles`}
-      />
+      {/* ═══ Cabecera fija de búsqueda y filtros ═══ */}
+      <View style={styles.fixedHeader}>
+        {/* Barra de búsqueda */}
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar por empresa..."
+            placeholderTextColor={colors.grayLight}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+            autoCorrect={false}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              style={styles.clearSearch}
+              onPress={() => setSearchQuery('')}
+            >
+              <Text style={styles.clearSearchText}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
+        {/* Filtros de modalidad (ScrollView horizontal, NO FlatList anidado) */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtersContainer}
+        >
+          {modalidades.map((item) => (
+            <TouchableOpacity
+              key={item}
+              style={[
+                styles.filterChip,
+                selectedModality === item && styles.filterChipActive,
+              ]}
+              onPress={() => setSelectedModality(item)}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  selectedModality === item && styles.filterChipTextActive,
+                ]}
+              >
+                {item}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Contador de resultados */}
+        <Text style={styles.resultsCount}>
+          {filteredOfertas.length}{' '}
+          {filteredOfertas.length === 1 ? 'oferta encontrada' : 'ofertas encontradas'}
+        </Text>
+      </View>
+
+      {/* ═══ Lista de ofertas ═══ */}
       <FlatList
         data={filteredOfertas}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderOfertaItem}
-        ListHeaderComponent={ListHeader}
         ListEmptyComponent={renderEmpty}
         ItemSeparatorComponent={ItemSeparator}
         contentContainerStyle={styles.listContent}
@@ -335,6 +343,7 @@ const OfertasScreen = () => {
           />
         }
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       />
     </View>
   );
@@ -345,15 +354,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.backgroundSecondary,
   },
-  listContent: {
-    paddingBottom: spacing.xxxl,
-  },
-  listHeader: {
+  // ── Cabecera fija ──────────────────────────────────────
+  fixedHeader: {
+    backgroundColor: colors.backgroundSecondary,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.sm,
   },
-  // Búsqueda
+  listContent: {
+    paddingBottom: spacing.xxxl,
+  },
+  // ── Búsqueda ───────────────────────────────────────────
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -379,7 +390,7 @@ const styles = StyleSheet.create({
     color: colors.grayMedium,
     fontWeight: typography.bold,
   },
-  // Filtros
+  // ── Filtros ────────────────────────────────────────────
   filtersContainer: {
     paddingBottom: spacing.sm,
   },
@@ -404,13 +415,13 @@ const styles = StyleSheet.create({
   filterChipTextActive: {
     color: colors.textOnPrimary,
   },
-  // Resultados
+  // ── Resultados ─────────────────────────────────────────
   resultsCount: {
     fontSize: typography.sm,
     color: colors.textSecondary,
     marginTop: spacing.xs,
   },
-  // Tarjeta de oferta
+  // ── Tarjeta de oferta ─────────────────────────────────
   ofertaCard: {
     marginHorizontal: spacing.lg,
     marginTop: spacing.sm,

@@ -19,13 +19,16 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { colors, typography } from '../theme';
 
 // Screens
-import DashboardScreen from '../screens/dashboard/DashboardScreen';
+import DashboardScreen from '../screens/jefe/DashboardScreen';
 import ActividadesScreen from '../screens/jefe/ActividadesScreen';
 import ActividadDetailScreen from '../screens/jefe/ActividadDetailScreen';
 import PasantesScreen from '../screens/jefe/PasantesScreen';
 import PasanteDetailScreen from '../screens/jefe/PasanteDetailScreen';
 import ObservacionScreen from '../screens/jefe/ObservacionScreen';
 import NotificacionesScreen from '../screens/jefe/NotificacionesScreen';
+import MensajesScreen from '../screens/jefe/MensajesScreen';
+import NuevoChatScreen from '../screens/jefe/NuevoChatScreen';
+import ChatScreen from '../screens/jefe/ChatScreen';
 
 // Tab Navigator
 import { JefeTabs } from './TabNavigator';
@@ -94,6 +97,23 @@ const JefeNavigator = () => {
         name="Notificaciones"
         component={NotificacionesScreen}
         options={{ title: 'Notificaciones' }}
+      />
+
+      {/* Mensajes */}
+      <Stack.Screen
+        name="Mensajes"
+        component={MensajesScreen}
+        options={{ title: 'Conversaciones' }}
+      />
+      <Stack.Screen
+        name="NuevoChat"
+        component={NuevoChatScreen}
+        options={{ title: 'Nuevo chat' }}
+      />
+      <Stack.Screen
+        name="Chat"
+        component={ChatScreen}
+        options={({ route }) => ({ title: route.params?.pasanteName || 'Chat' })}
       />
     </Stack.Navigator>
   );

@@ -360,11 +360,7 @@ const EvidenciaScreen = () => {
   if (loading) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Subir Evidencia"
-          leftIcon={<Text style={styles.backIcon}>←</Text>}
-          onLeftPress={() => navigation.goBack()}
-        />
+        <Header title="Subir Evidencia" />
         <LoadingSpinner fullScreen message="Cargando información..." />
       </View>
     );
@@ -374,11 +370,7 @@ const EvidenciaScreen = () => {
   if (error) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Subir Evidencia"
-          leftIcon={<Text style={styles.backIcon}>←</Text>}
-          onLeftPress={() => navigation.goBack()}
-        />
+        <Header title="Subir Evidencia" />
         <EmptyState
           icon={<Text style={styles.emptyIcon}>⚠️</Text>}
           title="Error al cargar"
@@ -392,12 +384,7 @@ const EvidenciaScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Header
-        title="Subir Evidencia"
-        leftIcon={<Text style={styles.backIcon}>←</Text>}
-        onLeftPress={() => navigation.goBack()}
-      />
-
+      <Header title="Subir Evidencia" />
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}

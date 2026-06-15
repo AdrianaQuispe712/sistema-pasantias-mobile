@@ -16,9 +16,10 @@ import {
   RefreshControl,
   StyleSheet,
   Alert,
+  Modal,
 } from 'react-native';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
-import { Header, Card, Badge, Button, EmptyState, LoadingSpinner } from '../../components/ui';
+import { Card, Badge, Button, Avatar, EmptyState, LoadingSpinner } from '../../components/ui';
 import {
   getDisponibles,
   getMias,
@@ -26,6 +27,7 @@ import {
   asignar,
   completar,
 } from '../../api/jefeActividades';
+import { getPasantes } from '../../api/jefePasantes';
 
 const TABS = [
   { key: 'disponibles', label: 'Disponibles' },
@@ -57,6 +59,9 @@ const ActividadesScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
+  const [pasantes, setPasantes] = useState([]);
+  const [showPasanteModal, setShowPasanteModal] = useState(false);
+  const [actividadToAsignar, setActividadToAsignar] = useState(null);
 
   const fetchActividades = useCallback(async (isRefresh = false) => {
     try {
@@ -80,9 +85,20 @@ const ActividadesScreen = ({ navigation }) => {
           data = [];
       }
 
-      setActividades(Array.isArray(data) ? data : data?.data || []);
-    } catch (err) {
-      console.error('Error fetching actividades:', err);
+      const rawList = Array.isArray(data) ? data : data?.data || [];
+
+      // Filtrado defensivo client-side para asegurar consistencia
+      // de estados entre pestañas (excluye completadas de "En Progreso"
+      // y solo incluye completadas en la pestaña "Completadas")
+      const filtered =
+        activeTab === 'progreso'
+          ? rawList.filter((a) => a.estado !== 'completada')
+          : activeTab === 'completadas'
+          ? rawList.filter((a) => a.estado === 'completada')
+          : rawList;
+
+      setActividades(filtered);
+    } catch {
       setError('No se pudieron cargar las actividades. Intente de nuevo.');
     } finally {
       setLoading(false);
@@ -101,14 +117,42 @@ const ActividadesScreen = ({ navigation }) => {
     return unsubscribe;
   }, [navigation, fetchActividades]);
 
+  // Cargar pasantes del jefe
+  useEffect(() => {
+    const fetchPasantes = async () => {
+      try {
+        const data = await getPasantes();
+        setPasantes(Array.isArray(data) ? data : data?.data || []);
+      } catch {
+        // Silently fail - pasantes list is supplementary
+      }
+    };
+    fetchPasantes();
+  }, []);
+
   const handleRefresh = () => {
     fetchActividades(true);
   };
 
   const handleAsignar = (actividad) => {
+    if (pasantes.length === 0) {
+      Alert.alert('Sin pasantes', 'No hay pasantes disponibles para asignar.');
+      return;
+    }
+    setActividadToAsignar(actividad);
+    setShowPasanteModal(true);
+  };
+
+  const handleSelectPasante = async (pasante) => {
+    setShowPasanteModal(false);
+    const actividad = actividadToAsignar;
+    setActividadToAsignar(null);
+
+    if (!actividad) return;
+
     Alert.alert(
       'Asignar Actividad',
-      `¿Desea asignar "${actividad.titulo || actividad.nombre}"?`,
+      `¿Desea asignar "${actividad.titulo || actividad.nombre}" a ${pasante.nombre || pasante.name}?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -116,11 +160,10 @@ const ActividadesScreen = ({ navigation }) => {
           onPress: async () => {
             try {
               setActionLoading(actividad.id);
-              await asignar(actividad.id);
-              Alert.alert('Éxito', 'Actividad asignada correctamente');
+              await asignar(actividad.id, { idPasante: pasante.id });
+              Alert.alert('Exito', 'Actividad asignada correctamente');
               fetchActividades();
-            } catch (err) {
-              console.error('Error assigning:', err);
+            } catch {
               Alert.alert('Error', 'No se pudo asignar la actividad');
             } finally {
               setActionLoading(null);
@@ -143,11 +186,11 @@ const ActividadesScreen = ({ navigation }) => {
             try {
               setActionLoading(actividad.id);
               await completar(actividad.id);
-              Alert.alert('Éxito', 'Actividad completada');
+              Alert.alert('Exito', 'Actividad completada');
               fetchActividades();
             } catch (err) {
-              console.error('Error completing:', err);
-              Alert.alert('Error', 'No se pudo completar la actividad');
+              const msg = err?.response?.data?.message || 'No se pudo completar la actividad';
+              Alert.alert('Aviso', msg);
             } finally {
               setActionLoading(null);
             }
@@ -158,7 +201,17 @@ const ActividadesScreen = ({ navigation }) => {
   };
 
   const navigateToDetail = (actividad) => {
-    navigation?.navigate('ActividadDetail', { actividadId: actividad.id });
+    navigation?.navigate('ActividadDetail', {
+      actividadId: actividad.id,
+      actividadData: {
+        id: actividad.id,
+        titulo: actividad.titulo || actividad.nombre,
+        descripcion: actividad.descripcion,
+        estado: actividad.estado,
+        fecha_limite: actividad.fecha_limite || actividad.fechaLimite,
+        empresa: actividad.empresa,
+      },
+    });
   };
 
   // ─── Render Helpers ────────────────────────────────────────
@@ -253,7 +306,6 @@ const ActividadesScreen = ({ navigation }) => {
   if (loading && !refreshing) {
     return (
       <View style={styles.screen}>
-        <Header title="Actividades" subtitle="Gestión de actividades" />
         <LoadingSpinner fullScreen message="Cargando actividades..." />
       </View>
     );
@@ -262,7 +314,6 @@ const ActividadesScreen = ({ navigation }) => {
   if (error && !refreshing && actividades.length === 0) {
     return (
       <View style={styles.screen}>
-        <Header title="Actividades" subtitle="Gestión de actividades" />
         <EmptyState
           icon={<Text style={styles.errorIcon}>⚠️</Text>}
           title="Error"
@@ -276,7 +327,6 @@ const ActividadesScreen = ({ navigation }) => {
 
   return (
     <View style={styles.screen}>
-      <Header title="Actividades" subtitle="Gestión de actividades" />
 
       {renderTabBar()}
 
@@ -311,6 +361,62 @@ const ActividadesScreen = ({ navigation }) => {
           }
         />
       )}
+
+      {/* Modal para seleccionar pasante */}
+      <Modal
+        visible={showPasanteModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          setShowPasanteModal(false);
+          setActividadToAsignar(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Seleccionar Pasante</Text>
+            <Text style={styles.modalSubtitle}>
+              {actividadToAsignar?.titulo || actividadToAsignar?.nombre}
+            </Text>
+
+            <FlatList
+              data={pasantes}
+              keyExtractor={(item) => String(item.id)}
+              renderItem={({ item }) => {
+                const nombre = item.nombre || item.name || `${item.nombre || ''} ${item.apellido || ''}`.trim();
+                return (
+                  <TouchableOpacity
+                    style={styles.pasanteItem}
+                    onPress={() => handleSelectPasante(item)}
+                    activeOpacity={0.7}
+                  >
+                    <Avatar name={nombre} uri={item.avatar || item.foto} size="md" />
+                    <View style={styles.pasanteItemInfo}>
+                      <Text style={styles.pasanteItemName}>{nombre || 'Sin nombre'}</Text>
+                      {item.email ? (
+                        <Text style={styles.pasanteItemEmail}>{item.email}</Text>
+                      ) : null}
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={
+                <Text style={styles.noDataText}>No hay pasantes disponibles</Text>
+              }
+            />
+
+            <Button
+              variant="ghost"
+              title="Cancelar"
+              onPress={() => {
+                setShowPasanteModal(false);
+                setActividadToAsignar(null);
+              }}
+              style={styles.modalCancelButton}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -396,6 +502,60 @@ const styles = StyleSheet.create({
   },
   errorIcon: {
     fontSize: 48,
+  },
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: borderRadius.lg,
+    borderTopRightRadius: borderRadius.lg,
+    padding: spacing.lg,
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    fontSize: typography.lg,
+    fontWeight: typography.bold,
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  modalSubtitle: {
+    fontSize: typography.sm,
+    color: colors.textSecondary,
+    marginBottom: spacing.lg,
+  },
+  pasanteItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.backgroundSecondary,
+  },
+  pasanteItemInfo: {
+    marginLeft: spacing.md,
+    flex: 1,
+  },
+  pasanteItemName: {
+    fontSize: typography.md,
+    fontWeight: typography.semibold,
+    color: colors.text,
+  },
+  pasanteItemEmail: {
+    fontSize: typography.sm,
+    color: colors.textSecondary,
+  },
+  modalCancelButton: {
+    marginTop: spacing.md,
+  },
+  noDataText: {
+    fontSize: typography.sm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    paddingVertical: spacing.lg,
   },
 });
 

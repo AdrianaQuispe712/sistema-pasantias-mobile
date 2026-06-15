@@ -23,6 +23,7 @@ import { colors, spacing, borderRadius, typography, shadows } from '../../theme'
 import { Button, Header, Badge, Card, EmptyState, LoadingSpinner } from '../../components/ui';
 import { getMisActividades } from '../../api/actividades';
 import { getBitacoras } from '../../api/bitacoras';
+import { formatDate } from '../../utils/dateUtils';
 
 const ActividadDetailScreen = () => {
   const navigation = useNavigation();
@@ -49,7 +50,15 @@ const ActividadDetailScreen = () => {
       const actividades = Array.isArray(actividadesData)
         ? actividadesData
         : actividadesData.data || [];
-      const found = actividades.find((a) => String(a.id) === String(actividadId));
+
+      // Buscar la actividad por múltiples posibles IDs
+      // (el calendario pasa evento.actividadId/actividad_id, actividades usa id)
+      const found = actividades.find(
+        (a) =>
+          String(a.id) === String(actividadId) ||
+          String(a.actividadId) === String(actividadId) ||
+          String(a.actividad_id) === String(actividadId)
+      );
       setActividad(found || null);
 
       // Cargar bitácoras
@@ -155,7 +164,7 @@ const ActividadDetailScreen = () => {
         <View style={styles.bitacoraHeader}>
           <Text style={styles.bitacoraIndex}>#{index + 1}</Text>
           <Text style={styles.bitacoraFecha}>
-            {bitacora.fecha || bitacora.created_at || 'Sin fecha'}
+            {formatDate(bitacora.fecha || bitacora.created_at) || 'Sin fecha'}
           </Text>
         </View>
 
@@ -183,11 +192,7 @@ const ActividadDetailScreen = () => {
   if (loading && !refreshing) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Detalle de Actividad"
-          leftIcon={<Text style={styles.backIcon}>←</Text>}
-          onLeftPress={() => navigation.goBack()}
-        />
+        <Header title="Detalle de Actividad" />
         <LoadingSpinner fullScreen message="Cargando actividad..." />
       </View>
     );
@@ -197,11 +202,7 @@ const ActividadDetailScreen = () => {
   if (error && !refreshing) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Detalle de Actividad"
-          leftIcon={<Text style={styles.backIcon}>←</Text>}
-          onLeftPress={() => navigation.goBack()}
-        />
+        <Header title="Detalle de Actividad" />
         <EmptyState
           icon={<Text style={styles.emptyIcon}>⚠️</Text>}
           title="Error al cargar"
@@ -217,11 +218,7 @@ const ActividadDetailScreen = () => {
   if (!actividad) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Detalle de Actividad"
-          leftIcon={<Text style={styles.backIcon}>←</Text>}
-          onLeftPress={() => navigation.goBack()}
-        />
+        <Header title="Detalle de Actividad" />
         <EmptyState
           icon={<Text style={styles.emptyIcon}>🔍</Text>}
           title="Actividad no encontrada"
@@ -235,15 +232,10 @@ const ActividadDetailScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Header
-        title="Detalle de Actividad"
-        leftIcon={<Text style={styles.backIcon}>←</Text>}
-        onLeftPress={() => navigation.goBack()}
-      />
-
+      <Header title="Detalle de Actividad" />
       <FlatList
         data={bitacoras}
-        keyExtractor={(item) => String(item.id)}
+        keyExtractor={(item, index) => String(item.id || item.bitacoraId || item.bitacora_id || index)}
         renderItem={renderBitacoraItem}
         ListHeaderComponent={
           <View style={styles.listHeader}>
@@ -281,13 +273,13 @@ const ActividadDetailScreen = () => {
                   {actividad.fechaInicio && (
                     <View style={styles.dateItem}>
                       <Text style={styles.dateLabel}>Inicio</Text>
-                      <Text style={styles.dateValue}>{actividad.fechaInicio}</Text>
+                      <Text style={styles.dateValue}>{formatDate(actividad.fechaInicio)}</Text>
                     </View>
                   )}
                   {actividad.fechaFin && (
                     <View style={styles.dateItem}>
                       <Text style={styles.dateLabel}>Fin</Text>
-                      <Text style={styles.dateValue}>{actividad.fechaFin}</Text>
+                      <Text style={styles.dateValue}>{formatDate(actividad.fechaFin)}</Text>
                     </View>
                   )}
                 </View>
@@ -312,7 +304,7 @@ const ActividadDetailScreen = () => {
                 variant="primary"
                 size="lg"
                 fullWidth
-                title="Registrar Avance"
+                title="Registrar Bitácora"
                 onPress={handleRegistrarAvance}
                 leftIcon={<Text style={styles.buttonIcon}>📝</Text>}
               />

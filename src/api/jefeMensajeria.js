@@ -16,8 +16,10 @@ export const getConversacion = async (id) => {
   return response.data;
 };
 
-export const sendTyping = async (id) => {
-  const response = await apiClient.post(`/jefe/conversaciones/${id}/typing`);
+export const sendTyping = async (id, typingBy = 'jefe') => {
+  const response = await apiClient.post(`/jefe/conversaciones/${id}/typing`, {
+    typing_by: typingBy,
+  });
   return response.data;
 };
 

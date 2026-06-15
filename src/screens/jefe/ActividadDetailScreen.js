@@ -53,7 +53,7 @@ const getStatusBadge = (estado) => {
 };
 
 const ActividadDetailScreen = ({ route, navigation }) => {
-  const { actividadId } = route?.params || {};
+  const { actividadId, actividadData } = route?.params || {};
 
   const [actividad, setActividad] = useState(null);
   const [observaciones, setObservaciones] = useState([]);
@@ -72,22 +72,32 @@ const ActividadDetailScreen = ({ route, navigation }) => {
       setLoading(true);
       setError(null);
 
-      const [actividadData, obsData] = await Promise.all([
-        getActividad(actividadId),
+      const [actividadDataResp, obsData] = await Promise.all([
+        getActividad(actividadId).catch(() => null),
         getObservaciones(actividadId).catch(() => []),
       ]);
 
-      setActividad(actividadData?.data || actividadData);
+      if (actividadDataResp?.data || actividadDataResp) {
+        setActividad(actividadDataResp?.data || actividadDataResp);
+      } else if (actividadData) {
+        setActividad(actividadData);
+      } else {
+        setError('No se pudo cargar el detalle de la actividad');
+      }
+
       setObservaciones(
         Array.isArray(obsData) ? obsData : obsData?.data || []
       );
-    } catch (err) {
-      console.error('Error fetching activity detail:', err);
-      setError('No se pudo cargar el detalle de la actividad');
+    } catch {
+      if (actividadData) {
+        setActividad(actividadData);
+      } else {
+        setError('No se pudo cargar el detalle de la actividad');
+      }
     } finally {
       setLoading(false);
     }
-  }, [actividadId]);
+  }, [actividadId, actividadData]);
 
   useEffect(() => {
     fetchData();
@@ -102,10 +112,11 @@ const ActividadDetailScreen = ({ route, navigation }) => {
           try {
             setActionLoading('completar');
             await completar(actividadId);
-            Alert.alert('Éxito', 'Actividad completada');
+            Alert.alert('Exito', 'Actividad completada');
             fetchData();
           } catch (err) {
-            Alert.alert('Error', 'No se pudo completar la actividad');
+            const msg = err?.response?.data?.message || 'No se pudo completar la actividad';
+            Alert.alert('Error', msg);
           } finally {
             setActionLoading(null);
           }
@@ -171,12 +182,6 @@ const ActividadDetailScreen = ({ route, navigation }) => {
   if (loading) {
     return (
       <View style={styles.screen}>
-        <Header
-          title="Detalle"
-          subtitle="Actividad"
-          leftIcon={<Text style={styles.backIcon}>←</Text>}
-          onLeftPress={() => navigation?.goBack()}
-        />
         <LoadingSpinner fullScreen message="Cargando actividad..." />
       </View>
     );
@@ -185,12 +190,6 @@ const ActividadDetailScreen = ({ route, navigation }) => {
   if (error || !actividad) {
     return (
       <View style={styles.screen}>
-        <Header
-          title="Detalle"
-          subtitle="Actividad"
-          leftIcon={<Text style={styles.backIcon}>←</Text>}
-          onLeftPress={() => navigation?.goBack()}
-        />
         <EmptyState
           icon={<Text style={styles.errorIcon}>⚠️</Text>}
           title="Error"
@@ -204,16 +203,17 @@ const ActividadDetailScreen = ({ route, navigation }) => {
 
   const badge = getStatusBadge(actividad.estado);
   const isCompleted = actividad.estado === 'completada';
-  const isAssigned = actividad.pasante_nombre || actividad.pasante;
+  const isDisponible = actividad.estado === 'disponible' || actividad.estado === 'en_espera';
+  const isAssigned = !isDisponible && (actividad.pasante_nombre || actividad.pasante);
+  const bitacoras = actividad.bitacoras || [];
+  const avanceMax = bitacoras.length > 0
+    ? Math.max(...bitacoras.map(b => b.porcentajeAvance || b.porcentaje || 0))
+    : 0;
+  const canDesasignar = !isDisponible && !isCompleted && bitacoras.length === 0;
+  const canCompletar = !isDisponible && !isCompleted && bitacoras.length > 0 && avanceMax >= 100;
 
   return (
     <View style={styles.screen}>
-      <Header
-        title="Detalle Actividad"
-        subtitle={actividad.titulo || actividad.nombre || ''}
-        leftIcon={<Text style={styles.backIcon}>←</Text>}
-        onLeftPress={() => navigation?.goBack()}
-      />
 
       <ScrollView
         style={styles.scrollView}
@@ -236,7 +236,7 @@ const ActividadDetailScreen = ({ route, navigation }) => {
           <View style={styles.infoGrid}>
             {actividad.fecha_limite || actividad.fechaLimite ? (
               <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Fecha Límite</Text>
+                <Text style={styles.infoLabel}>Fecha Limite</Text>
                 <Text style={styles.infoValue}>
                   {actividad.fecha_limite || actividad.fechaLimite}
                 </Text>
@@ -254,6 +254,12 @@ const ActividadDetailScreen = ({ route, navigation }) => {
                 <Text style={styles.infoValue}>{actividad.horas}h</Text>
               </View>
             ) : null}
+            {!isDisponible && (
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Avance</Text>
+                <Text style={styles.infoValue}>{avanceMax}%</Text>
+              </View>
+            )}
           </View>
         </Card>
 
@@ -281,14 +287,24 @@ const ActividadDetailScreen = ({ route, navigation }) => {
         )}
 
         {/* ── Bitácoras Card ── */}
-        <Card variant="default" style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Bitácoras del Pasante</Text>
-          {actividad.bitacoras && actividad.bitacoras.length > 0 ? (
-            actividad.bitacoras.map((bitacora, index) => (
+        {!isDisponible && (
+          <Card variant="default" style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Bitácoras del Pasante</Text>
+          {bitacoras.length > 0 ? (
+            bitacoras.map((bitacora, index) => (
               <View key={bitacora.id || index} style={styles.bitacoraItem}>
-                <Text style={styles.bitacoraDate}>
-                  {bitacora.fecha || bitacora.created_at || ''}
-                </Text>
+                <View style={styles.bitacoraHeader}>
+                  <Text style={styles.bitacoraDate}>
+                    {bitacora.fecha || bitacora.created_at || ''}
+                  </Text>
+                  {bitacora.porcentajeAvance != null && (
+                    <Badge
+                      variant={bitacora.porcentajeAvance >= 100 ? 'success' : 'info'}
+                      label={`${bitacora.porcentajeAvance}%`}
+                      size="sm"
+                    />
+                  )}
+                </View>
                 <Text style={styles.bitacoraContent}>
                   {bitacora.contenido || bitacora.descripcion || bitacora.texto || ''}
                 </Text>
@@ -299,86 +315,105 @@ const ActividadDetailScreen = ({ route, navigation }) => {
                 ) : null}
               </View>
             ))
-          ) : (
-            <Text style={styles.noDataText}>No hay bitácoras registradas</Text>
-          )}
-        </Card>
+            ) : (
+              <Text style={styles.noDataText}>No hay bitácoras registradas</Text>
+            )}
+          </Card>
+        )}
 
         {/* ── Observaciones Card ── */}
-        <Card variant="default" style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Observaciones</Text>
-          {observaciones.length > 0 ? (
-            observaciones.map((obs, index) => (
-              <View key={obs.id || index} style={styles.obsItem}>
-                <Text style={styles.obsContent}>
-                  {obs.contenido || obs.texto || obs.observacion || ''}
-                </Text>
-                {obs.satisfaccion !== undefined && obs.satisfaccion !== null && (
-                  <View style={styles.obsSatisfaction}>
-                    <Text style={styles.obsSatisfactionLabel}>Satisfacción:</Text>
-                    <Text style={styles.obsSatisfactionValue}>
-                      {obs.satisfaccion}%
-                    </Text>
-                  </View>
-                )}
-                <Text style={styles.obsDate}>
-                  {obs.fecha || obs.created_at || ''}
-                </Text>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.noDataText}>No hay observaciones aún</Text>
-          )}
+        {!isDisponible && (
+          <Card variant="default" style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Observaciones</Text>
+            {observaciones.length > 0 ? (
+              observaciones.map((obs, index) => (
+                <View key={obs.id || index} style={styles.obsItem}>
+                  <Text style={styles.obsContent}>
+                    {obs.contenido || obs.texto || obs.observacion || ''}
+                  </Text>
+                  {obs.satisfaccion !== undefined && obs.satisfaccion !== null && (
+                    <View style={styles.obsSatisfaction}>
+                      <Text style={styles.obsSatisfactionLabel}>Satisfacción:</Text>
+                      <Text style={styles.obsSatisfactionValue}>
+                        {obs.satisfaccion}%
+                      </Text>
+                    </View>
+                  )}
+                  <Text style={styles.obsDate}>
+                    {obs.fecha || obs.created_at || ''}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.noDataText}>No hay observaciones aún</Text>
+            )}
 
-          <Button
-            variant="secondary"
-            size="sm"
-            title="Agregar Observación"
-            onPress={navigateToAddObservation}
-            style={styles.addObsButton}
-          />
-        </Card>
+            <Button
+              variant="secondary"
+              size="sm"
+              title="Agregar Observación"
+              onPress={navigateToAddObservation}
+              style={styles.addObsButton}
+            />
+          </Card>
+        )}
 
         {/* ── Action Buttons ── */}
-        <Card variant="default" style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Acciones</Text>
-          <View style={styles.actionsGrid}>
-            {!isCompleted ? (
-              <Button
-                variant="primary"
-                title="Completar"
-                loading={actionLoading === 'completar'}
-                disabled={actionLoading !== null}
-                onPress={handleCompletar}
-                fullWidth
-                style={styles.actionButton}
-              />
-            ) : (
-              <Button
-                variant="outline"
-                title="Descompletar"
-                loading={actionLoading === 'descompletar'}
-                disabled={actionLoading !== null}
-                onPress={handleDescompletar}
-                fullWidth
-                style={styles.actionButton}
-              />
-            )}
+        {!isDisponible && (
+          <Card variant="default" style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Acciones</Text>
+            <View style={styles.actionsGrid}>
+              {canCompletar && (
+                <Button
+                  variant="primary"
+                  title="Completar"
+                  loading={actionLoading === 'completar'}
+                  disabled={actionLoading !== null}
+                  onPress={handleCompletar}
+                  fullWidth
+                  style={styles.actionButton}
+                />
+              )}
 
-            {isAssigned && (
-              <Button
-                variant="ghost"
-                title="Desasignar"
-                loading={actionLoading === 'desasignar'}
-                disabled={actionLoading !== null}
-                onPress={handleDesasignar}
-                fullWidth
-                style={[styles.actionButton, styles.dangerButton]}
-                textStyle={styles.dangerText}
-              />
-            )}
-          </View>
-        </Card>
+              {isCompleted && (
+                <Button
+                  variant="outline"
+                  title="Descompletar"
+                  loading={actionLoading === 'descompletar'}
+                  disabled={actionLoading !== null}
+                  onPress={handleDescompletar}
+                  fullWidth
+                  style={styles.actionButton}
+                />
+              )}
+
+              {canDesasignar && (
+                <Button
+                  variant="ghost"
+                  title="Desasignar"
+                  loading={actionLoading === 'desasignar'}
+                  disabled={actionLoading !== null}
+                  onPress={handleDesasignar}
+                  fullWidth
+                  style={[styles.actionButton, styles.dangerButton]}
+                  textStyle={styles.dangerText}
+                />
+              )}
+
+              {!isCompleted && !canCompletar && bitacoras.length === 0 && (
+                <Text style={styles.actionHint}>
+                  Esperando bitacoras del pasante para poder completar.
+                </Text>
+              )}
+
+              {!isCompleted && !canCompletar && bitacoras.length > 0 && avanceMax < 100 && (
+                <Text style={styles.actionHint}>
+                  Avance actual: {avanceMax}%. Se necesita 100% para completar.
+                </Text>
+              )}
+            </View>
+          </Card>
+        )}
       </ScrollView>
     </View>
   );
@@ -472,6 +507,12 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
+  bitacoraHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
   bitacoraDate: {
     fontSize: typography.xs,
     color: colors.textLight,
@@ -539,6 +580,12 @@ const styles = StyleSheet.create({
   },
   dangerText: {
     color: colors.error,
+  },
+  actionHint: {
+    fontSize: typography.sm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.sm,
   },
   errorIcon: {
     fontSize: 48,

@@ -16,20 +16,28 @@ import { Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, typography } from '../theme';
 import { getUnreadCount as getGerenteUnreadCount } from '../api/gerenteNotificaciones';
 import { getUnreadCount as getPasanteUnreadCount } from '../api/notificaciones';
-import { getUnreadCount as getJefeUnreadCount } from '../api/jefeNotificaciones';
+import { getConversaciones as getJefeConversaciones } from '../api/jefeMensajeria';
+import { getMias as getJefeMias, getCompletadas as getJefeCompletadas } from '../api/jefeActividades';
+
+const STORAGE_KEY_COMPLETED = '@jefe_completed_activities';
+const STORAGE_KEY_DISMISSED = '@jefe_dismissed_notifs';
 
 // Pasante Screens
 import OfertasPasanteScreen from '../screens/pasante/OfertasScreen';
 import ActividadesPasanteScreen from '../screens/pasante/ActividadesScreen';
 import CalendarioScreen from '../screens/pasante/CalendarioScreen';
+import MensajesPasanteScreen from '../screens/pasante/MensajesScreen';
 import NotificacionesPasanteScreen from '../screens/pasante/NotificacionesScreen';
 
 // Jefe Screens
+import DashboardJefeScreen from '../screens/jefe/DashboardScreen';
 import ActividadesJefeScreen from '../screens/jefe/ActividadesScreen';
 import PasantesScreen from '../screens/jefe/PasantesScreen';
+import MensajesJefeScreen from '../screens/jefe/MensajesScreen';
 import NotificacionesJefeScreen from '../screens/jefe/NotificacionesScreen';
 
 // Gerente Screens
@@ -144,6 +152,17 @@ export const PasanteTabs = () => {
       }}
     />
     <Tab.Screen
+      name="MensajesTab"
+      component={MensajesPasanteScreen}
+      options={{
+        title: 'Mensajes',
+        headerTitle: 'Conversaciones',
+        tabBarIcon: ({ color, size }) => (
+          <Ionicons name="chatbubbles-outline" size={size} color={color} />
+        ),
+      }}
+    />
+    <Tab.Screen
       name="NotificacionesTab"
       component={NotificacionesPasanteScreen}
       options={{
@@ -179,8 +198,61 @@ export const JefeTabs = () => {
 
   const fetchUnreadCount = useCallback(async () => {
     try {
-      const data = await getJefeUnreadCount();
-      setUnreadCount(data?.unreadCount || 0);
+      // Fetch all sources in parallel
+      const [conversaciones, actividadesMias, actividadesCompletadas, dismissedIds] = await Promise.all([
+        getJefeConversaciones().catch(() => ({ conversaciones: [] })),
+        getJefeMias().catch(() => ({ data: [] })),
+        getJefeCompletadas().catch(() => ({ data: [] })),
+        AsyncStorage.getItem(STORAGE_KEY_DISMISSED).then((s) => (s ? JSON.parse(s) : [])).catch(() => []),
+      ]);
+
+      const dismissedSet = new Set(dismissedIds);
+      const convs = conversaciones?.conversaciones || [];
+      const mias = Array.isArray(actividadesMias) ? actividadesMias : actividadesMias?.data || [];
+      const completadas = Array.isArray(actividadesCompletadas)
+        ? actividadesCompletadas
+        : actividadesCompletadas?.data || [];
+
+      let count = 0;
+
+      // 1. Unread messages (exclude dismissed)
+      if (!dismissedSet.has('unread-messages')) {
+        count += convs.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+      }
+
+      // 2. Delayed activities (never dismissed, always counted — even if completed)
+      // Uses local date parsing to avoid timezone bugs
+      const parseLocalDate = (dateStr) => {
+        if (!dateStr) return null;
+        const dateOnly = String(dateStr).split('T')[0].split(' ')[0];
+        const parts = dateOnly.split('-');
+        if (parts.length !== 3) return new Date(dateStr);
+        const [year, month, day] = parts.map(Number);
+        return new Date(year, month - 1, day, 23, 59, 59);
+      };
+      const now = new Date();
+      count += mias.filter((a) => {
+        const fechaLimite = a.fecha_limite || a.fechaLimite;
+        if (!fechaLimite) return false;
+        return parseLocalDate(fechaLimite) < now;
+      }).length;
+
+      // 3. Newly completed activities (exclude dismissed)
+      const currentCompletedIds = completadas.map((a) => String(a.id || a.idActividad)).sort();
+      let prevCompletedIds = [];
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY_COMPLETED);
+        if (stored) prevCompletedIds = JSON.parse(stored);
+      } catch {}
+      const prevSet = new Set(prevCompletedIds);
+      count += completadas.filter((a) => {
+        const actId = String(a.id || a.idActividad);
+        if (prevSet.has(actId)) return false; // not new
+        if (dismissedSet.has(`completed-${actId}`)) return false; // dismissed
+        return true;
+      }).length;
+
+      setUnreadCount(count);
     } catch (err) {
       // Silent fail
     }
@@ -196,6 +268,17 @@ export const JefeTabs = () => {
 
   return (
   <Tab.Navigator screenOptions={getTabBarOptions}>
+    <Tab.Screen
+      name="DashboardTab"
+      component={DashboardJefeScreen}
+      options={{
+        title: 'Dashboard',
+        headerTitle: 'Panel de Control',
+        tabBarIcon: ({ color, size }) => (
+          <Ionicons name="stats-chart-outline" size={size} color={color} />
+        ),
+      }}
+    />
     <Tab.Screen
       name="ActividadesTab"
       component={ActividadesJefeScreen}
@@ -215,6 +298,17 @@ export const JefeTabs = () => {
         headerTitle: 'Mis Pasantes',
         tabBarIcon: ({ color, size }) => (
           <Ionicons name="people-outline" size={size} color={color} />
+        ),
+      }}
+    />
+    <Tab.Screen
+      name="MensajesTab"
+      component={MensajesJefeScreen}
+      options={{
+        title: 'Mensajes',
+        headerTitle: 'Conversaciones',
+        tabBarIcon: ({ color, size }) => (
+          <Ionicons name="chatbubbles-outline" size={size} color={color} />
         ),
       }}
     />

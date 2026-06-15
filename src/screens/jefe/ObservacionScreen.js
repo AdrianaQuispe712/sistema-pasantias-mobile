@@ -66,8 +66,7 @@ const ObservacionScreen = ({ route, navigation }) => {
       Alert.alert('Éxito', 'Observación agregada correctamente', [
         { text: 'OK', onPress: () => navigation?.goBack() },
       ]);
-    } catch (err) {
-      console.error('Error creating observation:', err);
+    } catch {
       Alert.alert('Error', 'No se pudo agregar la observación. Intente de nuevo.');
     } finally {
       setLoading(false);

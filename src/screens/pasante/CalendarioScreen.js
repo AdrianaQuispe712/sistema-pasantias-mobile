@@ -19,8 +19,9 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { colors, spacing, borderRadius, typography, shadows } from '../../theme';
-import { Card, Header, Badge, EmptyState, LoadingSpinner } from '../../components/ui';
+import { Card, Badge, EmptyState, LoadingSpinner } from '../../components/ui';
 import { getCalendario } from '../../api/calendario';
+import { formatDate } from '../../utils/dateUtils';
 
 const CalendarioScreen = () => {
   const navigation = useNavigation();
@@ -129,26 +130,41 @@ const CalendarioScreen = () => {
 
   /**
    * Obtiene los eventos de una fecha específica
+   *
+   * Normaliza todas las fechas a YYYY-MM-DD para comparación
+   * confiable, ya que el backend puede devolver ISO timestamp,
+   * string de fecha, o formatos mixtos.
    */
   const getEventsForDate = useCallback(
     (date) => {
       if (!date) return [];
 
-      const dateStr = date.toISOString().split('T')[0];
+      // Helper: normaliza cualquier formato de fecha a YYYY-MM-DD
+      const toDateStr = (value) => {
+        if (!value) return null;
+        try {
+          const d = new Date(value);
+          if (isNaN(d.getTime())) return null;
+          return d.toISOString().split('T')[0];
+        } catch {
+          return null;
+        }
+      };
+
+      const dateStr = toDateStr(date);
+      if (!dateStr) return [];
 
       return eventos.filter((evento) => {
-        const fechaInicio = evento.fechaInicio || evento.fecha_inicio;
-        const fechaFin = evento.fechaFin || evento.fecha_fin;
+        const ini = toDateStr(evento.fechaInicio || evento.fecha_inicio);
+        const fin = toDateStr(evento.fechaFin || evento.fecha_fin);
 
-        if (fechaInicio && fechaFin) {
-          return dateStr >= fechaInicio && dateStr <= fechaFin;
+        // Si tiene rango (inicio y fin), verificar que la fecha esté dentro
+        if (ini && fin) {
+          return dateStr >= ini && dateStr <= fin;
         }
-        if (fechaInicio) {
-          return dateStr === fechaInicio;
-        }
-        if (fechaFin) {
-          return dateStr === fechaFin;
-        }
+        // Si solo tiene inicio o fin, coincidencia exacta
+        if (ini) return dateStr === ini;
+        if (fin) return dateStr === fin;
         return false;
       });
     },
@@ -311,9 +327,9 @@ const CalendarioScreen = () => {
         {dayEvents.length === 0 ? (
           <Text style={styles.noEventsText}>Sin eventos programados</Text>
         ) : (
-          dayEvents.map((evento) => (
+          dayEvents.map((evento, idx) => (
             <Card
-              key={evento.id}
+              key={evento.id || evento.actividadId || evento.actividad_id || `evt-${idx}`}
               variant="outlined"
               style={styles.eventCard}
               onPress={() =>
@@ -376,9 +392,9 @@ const CalendarioScreen = () => {
     return (
       <View style={styles.upcomingContainer}>
         <Text style={styles.upcomingTitle}>Próximos vencimientos</Text>
-        {upcoming.map((evento) => (
+        {upcoming.map((evento, idx) => (
           <Card
-            key={evento.id}
+            key={evento.id || evento.actividadId || evento.actividad_id || `upc-${idx}`}
             variant="outlined"
             style={styles.upcomingCard}
             onPress={() =>
@@ -393,7 +409,7 @@ const CalendarioScreen = () => {
                   {evento.titulo || evento.nombre || 'Actividad'}
                 </Text>
                 <Text style={styles.upcomingDate}>
-                  Vence: {evento.fechaFin || evento.fecha_fin}
+                  Vence: {formatDate(evento.fechaFin || evento.fecha_fin)}
                 </Text>
               </View>
               <Badge
@@ -412,7 +428,6 @@ const CalendarioScreen = () => {
   if (loading && !refreshing) {
     return (
       <View style={styles.container}>
-        <Header title="Calendario" subtitle="Vista de eventos" />
         <LoadingSpinner fullScreen message="Cargando calendario..." />
       </View>
     );
@@ -422,7 +437,6 @@ const CalendarioScreen = () => {
   if (error && !refreshing) {
     return (
       <View style={styles.container}>
-        <Header title="Calendario" subtitle="Vista de eventos" />
         <EmptyState
           icon={<Text style={styles.emptyIcon}>⚠️</Text>}
           title="Error al cargar"
@@ -436,8 +450,6 @@ const CalendarioScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Header title="Calendario" subtitle="Vista de eventos" />
-
       <FlatList
         data={[{ key: 'calendar' }]}
         keyExtractor={(item) => item.key}

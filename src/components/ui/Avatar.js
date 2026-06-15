@@ -110,6 +110,18 @@ const Avatar = ({
   const bgColor = getColorFromName(name);
   const initials = getInitials(name);
 
+  // Validar que URI sea una URL real de foto subida (http/https/file)
+  // y NO sea una URL generada por servicios externos:
+  //   - ui-avatars.com (Jetstream fallback por defecto)
+  //   - gravatar.com (Jetstream fallback alternativo)
+  // Si no hay foto real, mostrar iniciales con color de fondo
+  const GENERATED_PHOTO_SERVICES = ['ui-avatars.com', 'gravatar.com', 'gravatar'];
+  const isGeneratedUrl = uri && GENERATED_PHOTO_SERVICES.some((svc) => uri.includes(svc));
+  const isValidUri = uri
+    && typeof uri === 'string'
+    && /^(https?|file):\/\//.test(uri)
+    && !isGeneratedUrl;
+
   return (
     <View
       style={[styles.container, style]}
@@ -125,10 +137,10 @@ const Avatar = ({
             height: config.container,
             borderRadius: config.borderRadius,
           },
-          !uri && { backgroundColor: bgColor },
+          !isValidUri && { backgroundColor: bgColor },
         ]}
       >
-        {uri ? (
+        {isValidUri ? (
           <Image
             source={{ uri }}
             style={[

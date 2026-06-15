@@ -20,8 +20,9 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { colors, spacing, borderRadius, typography, shadows } from '../../theme';
-import { Card, Header, Badge, EmptyState, LoadingSpinner } from '../../components/ui';
+import { Card, Badge, EmptyState, LoadingSpinner } from '../../components/ui';
 import { getNotificaciones, markAsRead } from '../../api/notificaciones';
+import { formatDate } from '../../utils/dateUtils';
 
 const NotificacionesScreen = () => {
   const navigation = useNavigation();
@@ -168,13 +169,6 @@ const NotificacionesScreen = () => {
               >
                 {notif.titulo || notif.title || 'Notificación'}
               </Text>
-              {notif.tipo && (
-                <Badge
-                  variant={getNotificationBadgeVariant(notif.tipo)}
-                  size="sm"
-                  label={notif.tipo}
-                />
-              )}
             </View>
 
             <Text
@@ -188,7 +182,7 @@ const NotificacionesScreen = () => {
             </Text>
 
             <Text style={styles.notifDate}>
-              {notif.fecha || notif.created_at || notif.fechaCreacion || ''}
+              {formatDate(notif.fecha || notif.created_at || notif.fechaCreacion) || ''}
             </Text>
           </View>
         </TouchableOpacity>
@@ -216,10 +210,6 @@ const NotificacionesScreen = () => {
   if (loading && !refreshing) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Notificaciones"
-          subtitle="Centro de notificaciones"
-        />
         <LoadingSpinner fullScreen message="Cargando notificaciones..." />
       </View>
     );
@@ -229,10 +219,6 @@ const NotificacionesScreen = () => {
   if (error && !refreshing) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Notificaciones"
-          subtitle="Centro de notificaciones"
-        />
         <EmptyState
           icon={<Text style={styles.emptyIcon}>⚠️</Text>}
           title="Error al cargar"
@@ -251,15 +237,6 @@ const NotificacionesScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Header
-        title="Notificaciones"
-        subtitle={
-          unreadCount > 0
-            ? `${unreadCount} sin leer`
-            : 'Centro de notificaciones'
-        }
-      />
-
       {/* Contador de no leídas */}
       {unreadCount > 0 && (
         <View style={styles.unreadBanner}>

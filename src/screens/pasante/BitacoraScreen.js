@@ -26,6 +26,7 @@ import { colors, spacing, borderRadius, typography } from '../../theme';
 import { Button, Header, Card, Input, LoadingSpinner, EmptyState } from '../../components/ui';
 import { getMisActividades } from '../../api/actividades';
 import { createBitacora } from '../../api/bitacoras';
+import { formatDate } from '../../utils/dateUtils';
 
 const BitacoraScreen = () => {
   const navigation = useNavigation();
@@ -208,7 +209,7 @@ const BitacoraScreen = () => {
             );
           }}
         >
-          <Text style={styles.fechaText}>📅 {fecha || 'Seleccionar fecha'}</Text>
+          <Text style={styles.fechaText}>📅 {formatDate(fecha) || 'Seleccionar fecha'}</Text>
         </TouchableOpacity>
       </View>
       {errors.fecha && (
@@ -324,11 +325,7 @@ const BitacoraScreen = () => {
   if (loading) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Registrar Avance"
-          leftIcon={<Text style={styles.backIcon}>←</Text>}
-          onLeftPress={() => navigation.goBack()}
-        />
+        <Header title="Registrar Bitacora" />
         <LoadingSpinner fullScreen message="Cargando actividades..." />
       </View>
     );
@@ -338,11 +335,7 @@ const BitacoraScreen = () => {
   if (error) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Registrar Avance"
-          leftIcon={<Text style={styles.backIcon}>←</Text>}
-          onLeftPress={() => navigation.goBack()}
-        />
+        <Header title="Registrar Bitacora" />
         <EmptyState
           icon={<Text style={styles.emptyIcon}>⚠️</Text>}
           title="Error al cargar"
@@ -358,15 +351,11 @@ const BitacoraScreen = () => {
   if (actividades.length === 0) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Registrar Avance"
-          leftIcon={<Text style={styles.backIcon}>←</Text>}
-          onLeftPress={() => navigation.goBack()}
-        />
+        <Header title="Registrar bitacora" />
         <EmptyState
           icon={<Text style={styles.emptyIcon}>📋</Text>}
           title="Sin actividades disponibles"
-          subtitle="No tienes actividades pendientes para registrar avance."
+          subtitle="No tienes actividades pendientes para registrar bitacora."
           actionLabel="Volver"
           onAction={() => navigation.goBack()}
         />
@@ -376,12 +365,7 @@ const BitacoraScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Header
-        title="Registrar Avance"
-        leftIcon={<Text style={styles.backIcon}>←</Text>}
-        onLeftPress={() => navigation.goBack()}
-      />
-
+      <Header title="Registrar Bitacora" />
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
@@ -408,7 +392,7 @@ const BitacoraScreen = () => {
             variant="primary"
             size="lg"
             fullWidth
-            title="Registrar Avance"
+            title="Registrar Bitacora"
             onPress={handleSubmit}
             loading={submitting}
             disabled={submitting}

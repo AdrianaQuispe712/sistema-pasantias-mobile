@@ -26,28 +26,32 @@ import {
 import { getPasante } from '../../api/jefePasantes';
 
 /**
- * Badge variant para estados de inscripción/actividad
+ * Badge variant para estados de inscripción/actividad/pasante
+ * Inscripciones: pendiente, aceptado, rechazado, completado
+ * Pasantes: pendiente, aceptado, completado, abandono, rechazado
+ * Actividades: asignada, en_progreso, completada
+ * Nota: el backend retorna 'activo' hardcodeado — mapeamos a 'aceptado'
  */
 const getStatusBadge = (estado) => {
   switch (estado) {
     case 'aceptado':
     case 'aceptada':
-    case 'activo':
-    case 'active':
+    case 'activo':   // backend hardcodea 'activo' para inscripciones aceptadas
       return { variant: 'success', label: 'Aceptado' };
     case 'pendiente':
     case 'pending':
       return { variant: 'warning', label: 'Pendiente' };
     case 'rechazado':
     case 'rechazada':
-    case 'inactivo':
-    case 'inactive':
       return { variant: 'error', label: 'Rechazado' };
-    case 'completada':
     case 'completado':
-      return { variant: 'info', label: 'Completada' };
+    case 'completada':
+      return { variant: 'info', label: 'Completado' };
+    case 'abandono':
+      return { variant: 'error', label: 'Abandono' };
     case 'en_progreso':
     case 'en progreso':
+    case 'asignada':
       return { variant: 'warning', label: 'En Progreso' };
     default:
       return { variant: 'neutral', label: estado || 'Sin estado' };
@@ -73,8 +77,7 @@ const PasanteDetailScreen = ({ route, navigation }) => {
       setError(null);
       const data = await getPasante(pasanteId);
       setPasante(data?.data || data);
-    } catch (err) {
-      console.error('Error fetching pasante:', err);
+    } catch {
       setError('No se pudo cargar la información del pasante');
     } finally {
       setLoading(false);
@@ -134,7 +137,7 @@ const PasanteDetailScreen = ({ route, navigation }) => {
     `${pasante.nombre || ''} ${pasante.apellido || ''}`.trim();
   const email = pasante.email || pasante.correo || '';
   const telefono = pasante.telefono || pasante.phone || '';
-  const estado = pasante.estado || 'activo';
+  const estado = pasante.estado || 'pendiente';
   const badge = getStatusBadge(estado);
 
   // Rendimiento
@@ -143,22 +146,15 @@ const PasanteDetailScreen = ({ route, navigation }) => {
     rendimiento.actividades_completadas ?? pasante.actividades_completadas ?? 0;
   const actividadesTotales =
     rendimiento.actividades_totales ?? pasante.actividades_totales ?? 0;
-  const satisfaccionPromedio =
-    rendimiento.satisfaccion_promedio ?? pasante.satisfaccion_promedio ?? null;
 
-  // Inscripciones
-  const inscripciones = pasante.inscripciones || [];
   // Actividades
   const actividades = pasante.actividades || pasante.actividades_asignadas || [];
+  const actividadesEnProgreso = actividades.filter(
+    (a) => a.estado === 'en_progreso' || a.estado === 'asignada'
+  ).length;
 
   return (
     <View style={styles.screen}>
-      <Header
-        title="Perfil del Pasante"
-        subtitle={nombre}
-        leftIcon={<Text style={styles.backIcon}>←</Text>}
-        onLeftPress={() => navigation?.goBack()}
-      />
 
       <ScrollView
         style={styles.scrollView}
@@ -187,46 +183,14 @@ const PasanteDetailScreen = ({ route, navigation }) => {
               <Text style={styles.statLabel}>Completadas</Text>
             </View>
             <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{actividadesEnProgreso}</Text>
+              <Text style={styles.statLabel}>En Progreso</Text>
+            </View>
+            <View style={styles.statCard}>
               <Text style={styles.statNumber}>{actividadesTotales}</Text>
               <Text style={styles.statLabel}>Total</Text>
             </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>
-                {satisfaccionPromedio !== null && satisfaccionPromedio !== undefined
-                  ? `${satisfaccionPromedio}%`
-                  : '—'}
-              </Text>
-              <Text style={styles.statLabel}>Satisfacción</Text>
-            </View>
           </View>
-        </Card>
-
-        {/* ── Inscripciones Activas ── */}
-        <Card variant="default" style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Inscripciones Activas</Text>
-          {inscripciones.length > 0 ? (
-            inscripciones.map((inscripcion, index) => {
-              const inscBadge = getStatusBadge(inscripcion.estado);
-              return (
-                <View key={inscripcion.id || index} style={styles.listItem}>
-                  <View style={styles.listItemContent}>
-                    <Text style={styles.listItemTitle} numberOfLines={1}>
-                      {inscripcion.oferta_titulo ||
-                        inscripcion.oferta?.titulo ||
-                        inscripcion.titulo ||
-                        'Inscripción'}
-                    </Text>
-                    <Text style={styles.listItemSubtitle} numberOfLines={1}>
-                      {inscripcion.fecha || inscripcion.created_at || ''}
-                    </Text>
-                  </View>
-                  <Badge variant={inscBadge.variant} label={inscBadge.label} size="sm" />
-                </View>
-              );
-            })
-          ) : (
-            <Text style={styles.noDataText}>No hay inscripciones activas</Text>
-          )}
         </Card>
 
         {/* ── Actividades Asignadas ── */}

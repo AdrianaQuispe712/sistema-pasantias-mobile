@@ -78,8 +78,7 @@ export const colors = {
   pendiente: '#F59E0B',
   rechazado: '#EF4444',
   completado: '#3B82F6',
-  activo: '#10B981',
-  inactivo: '#9CA3AF',
+  abandono: '#EF4444',
   
   // ============================================
   // TEXT & BORDERS

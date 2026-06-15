@@ -30,6 +30,8 @@ import BitacoraScreen from '../screens/pasante/BitacoraScreen';
 import CalendarioScreen from '../screens/pasante/CalendarioScreen';
 import NotificacionesScreen from '../screens/pasante/NotificacionesScreen';
 import EvidenciaScreen from '../screens/pasante/EvidenciaScreen';
+import MensajesScreen from '../screens/pasante/MensajesScreen';
+import ChatScreen from '../screens/pasante/ChatScreen';
 
 // Tab Navigator
 import { PasanteTabs } from './TabNavigator';
@@ -71,7 +73,7 @@ const PasanteNavigator = () => {
       <Stack.Screen
         name="OfertaDetail"
         component={OfertaDetailScreen}
-        options={{ title: 'Detalle de Oferta' }}
+        options={{ headerShown: false }}
       />
 
       {/* Actividades */}
@@ -83,14 +85,14 @@ const PasanteNavigator = () => {
       <Stack.Screen
         name="ActividadDetail"
         component={ActividadDetailScreen}
-        options={{ title: 'Detalle de Actividad' }}
+        options={{ headerShown: false }}
       />
 
       {/* Bitacora */}
       <Stack.Screen
         name="Bitacora"
         component={BitacoraScreen}
-        options={{ title: 'Registrar Bitácora' }}
+        options={{ headerShown: false }}
       />
 
       {/* Calendario */}
@@ -107,11 +109,23 @@ const PasanteNavigator = () => {
         options={{ title: 'Notificaciones' }}
       />
 
+      {/* Mensajes */}
+      <Stack.Screen
+        name="PasanteMensajes"
+        component={MensajesScreen}
+        options={{ title: 'Conversaciones' }}
+      />
+      <Stack.Screen
+        name="PasanteChat"
+        component={ChatScreen}
+        options={({ route }) => ({ title: route.params?.jefeName || 'Chat' })}
+      />
+
       {/* Evidencia */}
       <Stack.Screen
         name="Evidencia"
         component={EvidenciaScreen}
-        options={{ title: 'Subir Evidencia' }}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );
