@@ -29,6 +29,7 @@ const STORAGE_KEY_VIEWED = '@jefe_viewed_delayed';
 
 // Pasante Screens
 import OfertasPasanteScreen from '../screens/pasante/OfertasScreen';
+import InscripcionesPasanteScreen from '../screens/pasante/InscripcionesScreen';
 import ActividadesPasanteScreen from '../screens/pasante/ActividadesScreen';
 import CalendarioScreen from '../screens/pasante/CalendarioScreen';
 import MensajesPasanteScreen from '../screens/pasante/MensajesScreen';
@@ -127,6 +128,17 @@ export const PasanteTabs = () => {
         headerTitle: 'Ofertas de Pasantía',
         tabBarIcon: ({ color, size }) => (
           <Ionicons name="briefcase-outline" size={size} color={color} />
+        ),
+      }}
+    />
+    <Tab.Screen
+      name="InscripcionesTab"
+      component={InscripcionesPasanteScreen}
+      options={{
+        title: 'Inscripciones',
+        headerTitle: 'Mis Inscripciones',
+        tabBarIcon: ({ color, size }) => (
+          <Ionicons name="document-text-outline" size={size} color={color} />
         ),
       }}
     />

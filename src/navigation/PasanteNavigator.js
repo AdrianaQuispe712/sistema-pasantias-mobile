@@ -24,6 +24,8 @@ import { colors, typography } from '../theme';
 import DashboardScreen from '../screens/dashboard/DashboardScreen';
 import OfertasScreen from '../screens/pasante/OfertasScreen';
 import OfertaDetailScreen from '../screens/pasante/OfertaDetailScreen';
+import InscripcionesScreen from '../screens/pasante/InscripcionesScreen';
+import InscripcionDetailScreen from '../screens/pasante/InscripcionDetailScreen';
 import ActividadesScreen from '../screens/pasante/ActividadesScreen';
 import ActividadDetailScreen from '../screens/pasante/ActividadDetailScreen';
 import BitacoraScreen from '../screens/pasante/BitacoraScreen';
@@ -74,6 +76,18 @@ const PasanteNavigator = () => {
         name="OfertaDetail"
         component={OfertaDetailScreen}
         options={{ headerShown: false }}
+      />
+
+      {/* Inscripciones */}
+      <Stack.Screen
+        name="Inscripciones"
+        component={InscripcionesScreen}
+        options={{ title: 'Mis Inscripciones' }}
+      />
+      <Stack.Screen
+        name="InscripcionDetail"
+        component={InscripcionDetailScreen}
+        options={{ title: 'Detalle de Inscripción' }}
       />
 
       {/* Actividades */}
