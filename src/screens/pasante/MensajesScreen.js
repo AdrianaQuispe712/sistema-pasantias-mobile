@@ -18,6 +18,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { colors, spacing, borderRadius, typography, shadows } from '../../theme';
+import { getAvatarColor } from '../../utils/avatarColors';
 import { Ionicons } from '@expo/vector-icons';
 import { Card, EmptyState, LoadingSpinner } from '../../components/ui';
 import { getConversaciones } from '../../api/pasanteMensajeria';
@@ -98,6 +99,7 @@ const MensajesScreen = ({ navigation }) => {
     const lastMessage = conv.lastMessage?.contenido || '';
     const unread = conv.unread_count || 0;
     const hasUnread = unread > 0;
+    const avatarColors = getAvatarColor(jefeName);
 
     return (
       <TouchableOpacity
@@ -106,8 +108,8 @@ const MensajesScreen = ({ navigation }) => {
         activeOpacity={0.7}
       >
         {/* Avatar */}
-        <View style={[styles.avatar, hasUnread && styles.avatarUnread]}>
-          <Text style={styles.avatarText}>{initials}</Text>
+        <View style={[styles.avatar, { backgroundColor: avatarColors.bg }]}>
+          <Text style={[styles.avatarText, { color: avatarColors.text }]}>{initials}</Text>
         </View>
 
         {/* Content */}
@@ -237,9 +239,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
-  },
-  avatarUnread: {
-    backgroundColor: colors.secondary,
   },
   avatarText: {
     fontSize: typography.md,

@@ -46,7 +46,9 @@ const OfertaDetailScreen = () => {
     try {
       setError(null);
       setLoading(true);
-      const data = await getOferta(ofertaId);
+      const rawData = await getOferta(ofertaId);
+      // Unwrap: backend returns { data: { ... } }, we need the inner object
+      const data = rawData?.data || rawData;
       setOferta(data);
     } catch (err) {
       console.error('Error al cargar oferta:', err);
@@ -78,15 +80,16 @@ const OfertaDetailScreen = () => {
       setPostulacionExitosa(true);
       setShowConfirmModal(false);
       Alert.alert(
-        '¡Postulación exitosa!',
-        'Tu postulación ha sido registrada correctamente. Recibirás una notificación cuando sea revisada.',
+        '¡Inscripción exitosa!',
+        'Tu inscripción ha sido registrada correctamente. Recibirás una notificación cuando sea revisada.',
         [{ text: 'Aceptar', onPress: () => navigation.goBack() }]
       );
     } catch (err) {
-      console.error('Error al postularse:', err);
+      console.warn('Error al inscribirse:', err);
+      setShowConfirmModal(false);
       const message =
-        err.response?.data?.message || 'No se pudo completar la postulación. Intente nuevamente.';
-      Alert.alert('Error', message);
+        err.response?.data?.message || 'No se pudo completar la inscripción. Intentá nuevamente.';
+      Alert.alert('Inscripción', message);
     } finally {
       setSubmitting(false);
     }
@@ -258,17 +261,39 @@ const OfertaDetailScreen = () => {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Botón fijo de postulación */}
-      <View style={styles.bottomBar}>
-        <Button
-          variant="primary"
-          size="lg"
-          fullWidth
-          title={postulacionExitosa ? 'Ya te postulaste' : 'Postularse ahora'}
-          onPress={openConfirmModal}
-          disabled={postulacionExitosa}
-        />
-      </View>
+      {/* Barra inferior: solo si NO está bloqueado */}
+      {!oferta.bloqueado && (
+        <View style={styles.bottomBar}>
+          {oferta.yaPostulado ? (
+            <View style={styles.inscripcionInfo}>
+              <Ionicons
+                name="checkmark-circle"
+                size={22}
+                color={colors.success}
+              />
+              <Text style={styles.inscripcionText}>Ya estás inscrito en esta oferta</Text>
+              <Badge
+                variant={oferta.inscripcionEstado === 'aceptado' ? 'success' : 'warning'}
+                size="sm"
+                label={
+                  oferta.inscripcionEstado === 'aceptado' ? 'Aceptado' :
+                  oferta.inscripcionEstado === 'completado' ? 'Completado' :
+                  'Pendiente'
+                }
+              />
+            </View>
+          ) : (
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              title={postulacionExitosa ? 'Ya te inscribiste' : 'Inscribirse ahora'}
+              onPress={openConfirmModal}
+              disabled={postulacionExitosa}
+            />
+          )}
+        </View>
+      )}
 
       {/* Modal de confirmación de postulación */}
       <Modal
@@ -279,14 +304,14 @@ const OfertaDetailScreen = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Confirmar postulación</Text>
+            <Text style={styles.modalTitle}>Confirmar inscripción</Text>
             <Text style={styles.modalMessage}>
-              ¿Estás seguro que deseas postularte a{' '}
+              ¿Estás seguro que deseas inscribirte a{' '}
               <Text style={styles.modalHighlight}>{oferta.titulo}</Text>
               {' '}en {oferta.empresa?.nombre || 'la empresa'}?
             </Text>
             <Text style={styles.modalSubtext}>
-              Recibirás una notificación cuando tu postulación sea revisada.
+              Recibirás una notificación cuando tu inscripción sea revisada.
             </Text>
 
             <View style={styles.modalButtons}>
@@ -410,6 +435,17 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
     ...shadows.md,
+  },
+  inscripcionInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  inscripcionText: {
+    flex: 1,
+    fontSize: typography.sm,
+    color: colors.textPrimary,
+    fontWeight: typography.medium,
   },
   bottomSpacer: {
     height: spacing.xl,

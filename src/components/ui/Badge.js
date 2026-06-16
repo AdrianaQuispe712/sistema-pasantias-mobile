@@ -70,6 +70,24 @@ const Badge = ({
           text: styles.textInfo,
           dot: styles.dotInfo,
         };
+      case 'presencial':
+        return {
+          container: styles.presencial,
+          text: styles.textPresencial,
+          dot: styles.dotPresencial,
+        };
+      case 'remoto':
+        return {
+          container: styles.remoto,
+          text: styles.textRemoto,
+          dot: styles.dotRemoto,
+        };
+      case 'hibrido':
+        return {
+          container: styles.hibrido,
+          text: styles.textHibrido,
+          dot: styles.dotHibrido,
+        };
       case 'neutral':
       default:
         return {
@@ -196,6 +214,35 @@ const styles = StyleSheet.create({
   },
   dotInfo: {
     backgroundColor: colors.info,
+  },
+
+  // Variants - Modalidad
+  presencial: {
+    backgroundColor: colors.presencialLight,
+  },
+  textPresencial: {
+    color: colors.presencial,
+  },
+  dotPresencial: {
+    backgroundColor: colors.presencial,
+  },
+  remoto: {
+    backgroundColor: colors.remotoLight,
+  },
+  textRemoto: {
+    color: colors.remoto,
+  },
+  dotRemoto: {
+    backgroundColor: colors.remoto,
+  },
+  hibrido: {
+    backgroundColor: colors.hibridoLight,
+  },
+  textHibrido: {
+    color: colors.hibrido,
+  },
+  dotHibrido: {
+    backgroundColor: colors.hibrido,
   },
 
   // Variants - Neutral

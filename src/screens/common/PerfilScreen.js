@@ -10,6 +10,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
@@ -44,10 +45,15 @@ const PerfilScreen = () => {
   return (
     <View style={styles.container}>
       <View style={styles.avatarContainer}>
-        <View style={styles.avatar}>
+        <LinearGradient
+          colors={['#F59E0B', '#F97316']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.avatar}
+        >
           <Ionicons name="person" size={48} color={colors.white} />
-        </View>
-        <Text style={styles.name}>{user?.name || 'Usuario'}</Text>
+        </LinearGradient>
+        <Text style={styles.name}>{user?.nombre || 'Usuario'}</Text>
         <Text style={styles.role}>{ROLE_LABELS[role] || role}</Text>
       </View>
 
@@ -98,7 +104,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.md,

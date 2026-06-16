@@ -70,6 +70,14 @@ export const colors = {
   info: '#3B82F6',         // Información
   infoLight: '#DBEAFE',
   
+  // Modalidad de oferta
+  presencial: '#388E3C',   // Verde oscuro — Presencial
+  presencialLight: '#C8E6C9',
+  remoto: '#7E57C2',       // Lila — Remoto
+  remotoLight: '#EDE7F6',
+  hibrido: '#78909C',      // Plomo vivo — Híbrido
+  hibridoLight: '#ECEFF1',
+  
   // ============================================
   // COLORES SEMÁNTICOS
   // ============================================

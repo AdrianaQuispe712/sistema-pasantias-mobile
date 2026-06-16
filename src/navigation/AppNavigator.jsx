@@ -44,7 +44,6 @@ const LoadingScreen = () => (
         style={styles.loadingLogo}
         resizeMode="contain"
       />
-      <Text style={styles.loadingTitle}>Pasantías</Text>
       <Text style={styles.loadingSubtitle}>Cargando...</Text>
     </View>
     <ActivityIndicator
@@ -144,21 +143,21 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accent,
   },
   loadingCard: {
     alignItems: "center",
     marginBottom: 32,
   },
   loadingLogo: {
-    width: 290,
-    height: 290,
+    width: 320,
+    height: 320,
     marginBottom: 16,
   },
   loadingTitle: {
     fontSize: typography.title,
     fontWeight: typography.bold,
-    color: colors.white,
+    color: colors.primary,
     marginTop: 16,
     letterSpacing: 1,
   },
@@ -166,7 +165,6 @@ const styles = StyleSheet.create({
     fontSize: typography.md,
     color: colors.white,
     marginTop: 8,
-    opacity: 0.8,
   },
   spinner: {
     marginTop: 16,

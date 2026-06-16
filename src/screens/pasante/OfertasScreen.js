@@ -32,6 +32,23 @@ import { colors, spacing, borderRadius, typography, shadows } from '../../theme'
 import { Button, Card, Badge, EmptyState, LoadingSpinner } from '../../components/ui';
 import { getOfertas } from '../../api/ofertas';
 
+/**
+ * Retorna la variante del Badge según la modalidad de la oferta
+ */
+const getModalidadVariant = (modalidad) => {
+  switch (modalidad?.toLowerCase()) {
+    case 'presencial':
+      return 'presencial';
+    case 'remoto':
+      return 'remoto';
+    case 'híbrido':
+    case 'hibrido':
+      return 'hibrido';
+    default:
+      return 'neutral';
+  }
+};
+
 const OfertasScreen = () => {
   const navigation = useNavigation();
 
@@ -161,7 +178,7 @@ const OfertasScreen = () => {
               {oferta.empresa?.nombre || 'Empresa'}
             </Text>
             {oferta.modalidad && (
-              <Badge variant="info" size="sm" label={oferta.modalidad} />
+              <Badge variant={getModalidadVariant(oferta.modalidad)} size="sm" label={oferta.modalidad} />
             )}
           </View>
         </View>
@@ -201,7 +218,7 @@ const OfertasScreen = () => {
           <Button
             variant="primary"
             size="sm"
-            title="Postularse"
+            title="Inscribirse"
             onPress={() => handlePostularse(oferta)}
             rightIcon={<Text style={styles.arrowIcon}>→</Text>}
           />

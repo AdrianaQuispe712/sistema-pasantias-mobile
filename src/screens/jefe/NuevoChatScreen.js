@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, shadows } from '../../theme';
+import { getAvatarColor } from '../../utils/avatarColors';
 import { Avatar, EmptyState, LoadingSpinner } from '../../components/ui';
 import { getPasantes } from '../../api/jefePasantes';
 import { createConversacion } from '../../api/jefeMensajeria';
@@ -82,6 +83,7 @@ const NuevoChatScreen = ({ navigation }) => {
       .substring(0, 2)
       .toUpperCase();
     const isCreating = creatingId === item.id;
+    const avatarColors = getAvatarColor(nombre);
 
     return (
       <TouchableOpacity
@@ -91,8 +93,8 @@ const NuevoChatScreen = ({ navigation }) => {
         disabled={!!creatingId}
       >
         <View style={styles.cardRow}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>{initials}</Text>
+          <View style={[styles.avatarCircle, { backgroundColor: avatarColors.bg }]}>
+            <Text style={[styles.avatarText, { color: avatarColors.text }]}>{initials}</Text>
           </View>
 
           <View style={styles.cardInfo}>

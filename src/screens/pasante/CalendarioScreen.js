@@ -140,13 +140,16 @@ const CalendarioScreen = () => {
     (date) => {
       if (!date) return [];
 
-      // Helper: normaliza cualquier formato de fecha a YYYY-MM-DD
+      // Helper: normaliza cualquier formato de fecha a YYYY-MM-DD usando hora LOCAL
       const toDateStr = (value) => {
         if (!value) return null;
         try {
           const d = new Date(value);
           if (isNaN(d.getTime())) return null;
-          return d.toISOString().split('T')[0];
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
         } catch {
           return null;
         }
@@ -173,32 +176,92 @@ const CalendarioScreen = () => {
   );
 
   /**
+   * Verifica si una actividad ya venció (fecha pasada y no completada)
+   */
+  const isOverdue = useCallback((evento) => {
+    const fechaFin = evento.fechaFin || evento.fecha_fin;
+    if (!fechaFin) return false;
+    const endDate = new Date(fechaFin);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const estado = evento.estado?.toLowerCase();
+    return endDate < today && estado !== 'completada';
+  }, []);
+
+  /**
+   * Determina el variant del Badge según estado y fecha
+   *
+   * Reglas (misma lógica que ActividadesScreen):
+   * 1. Si la fecha pasó → error (rojo), sin importar el estado
+   * 2. completada → success (verde)
+   * 3. en_progreso → orange (naranja)
+   * 4. pendiente → warning (amarillo)
+   */
+  const getStatusVariant = useCallback(
+    (evento) => {
+      // Si la fecha pasó → rojo
+      if (isOverdue(evento)) return 'error';
+
+      switch (evento.estado?.toLowerCase()) {
+        case 'completada':
+          return 'info';
+        case 'en_progreso':
+        case 'en progreso':
+          return 'orange';
+        case 'pendiente':
+          return 'warning';
+        default:
+          return 'neutral';
+      }
+    },
+    [isOverdue]
+  );
+
+  /**
+   * Label legible para el badge (el nombre del estado)
+   */
+  const getStatusLabel = useCallback((evento) => {
+    switch (evento.estado?.toLowerCase()) {
+      case 'completada':
+        return 'Completada';
+      case 'en_progreso':
+      case 'en progreso':
+        return 'En progreso';
+      case 'pendiente':
+        return 'Pendiente';
+      default:
+        return evento.estado?.replace('_', ' ') || 'Sin estado';
+    }
+  }, []);
+
+  /**
    * Obtiene el color de fondo para una fecha según sus eventos
+   *
+   * Prioridad: rojo > naranja > amarillo > verde
    */
   const getDateBackgroundColor = useCallback(
     (date) => {
       const dayEvents = getEventsForDate(date);
       if (dayEvents.length === 0) return 'transparent';
 
-      // Prioridad de color: error > warning > success > info
-      const hasError = dayEvents.some(
-        (e) => e.estado?.toLowerCase() === 'rechazada' || e.estado?.toLowerCase() === 'vencida'
-      );
-      if (hasError) return colors.errorLight;
+      const variantColors = {
+        error: colors.errorLight,
+        orange: colors.orangeLight,
+        warning: colors.warningLight,
+        info: colors.infoLight,
+        neutral: colors.grayBackground,
+      };
 
-      const hasWarning = dayEvents.some(
-        (e) => e.estado?.toLowerCase() === 'pendiente'
-      );
-      if (hasWarning) return colors.warningLight;
-
-      const hasSuccess = dayEvents.some(
-        (e) => e.estado?.toLowerCase() === 'completada' || e.estado?.toLowerCase() === 'aprobada'
-      );
-      if (hasSuccess) return colors.successLight;
-
-      return colors.infoLight;
+      // Prioridad: error > orange > warning > info
+      const priority = ['error', 'orange', 'warning', 'info', 'neutral'];
+      for (const v of priority) {
+        if (dayEvents.some((e) => getStatusVariant(e) === v)) {
+          return variantColors[v];
+        }
+      }
+      return 'transparent';
     },
-    [getEventsForDate]
+    [getEventsForDate, getStatusVariant]
   );
 
   /**
@@ -209,24 +272,23 @@ const CalendarioScreen = () => {
       const dayEvents = getEventsForDate(date);
       if (dayEvents.length === 0) return 'transparent';
 
-      const hasError = dayEvents.some(
-        (e) => e.estado?.toLowerCase() === 'rechazada' || e.estado?.toLowerCase() === 'vencida'
-      );
-      if (hasError) return colors.error;
+      const variantDots = {
+        error: colors.error,
+        orange: colors.orange,
+        warning: colors.warning,
+        info: colors.info,
+        neutral: colors.grayMedium,
+      };
 
-      const hasWarning = dayEvents.some(
-        (e) => e.estado?.toLowerCase() === 'pendiente'
-      );
-      if (hasWarning) return colors.warning;
-
-      const hasSuccess = dayEvents.some(
-        (e) => e.estado?.toLowerCase() === 'completada' || e.estado?.toLowerCase() === 'aprobada'
-      );
-      if (hasSuccess) return colors.success;
-
-      return colors.secondary;
+      const priority = ['error', 'orange', 'warning', 'info', 'neutral'];
+      for (const v of priority) {
+        if (dayEvents.some((e) => getStatusVariant(e) === v)) {
+          return variantDots[v];
+        }
+      }
+      return 'transparent';
     },
-    [getEventsForDate]
+    [getEventsForDate, getStatusVariant]
   );
 
   /**
@@ -345,15 +407,9 @@ const CalendarioScreen = () => {
                   {evento.titulo || evento.nombre || 'Evento'}
                 </Text>
                 <Badge
-                  variant={
-                    evento.estado?.toLowerCase() === 'completada'
-                      ? 'success'
-                      : evento.estado?.toLowerCase() === 'pendiente'
-                      ? 'warning'
-                      : 'info'
-                  }
+                  variant={getStatusVariant(evento)}
                   size="sm"
-                  label={evento.estado?.replace('_', ' ') || 'Pendiente'}
+                  label={getStatusLabel(evento)}
                 />
               </View>
               {evento.descripcion && (
@@ -416,9 +472,9 @@ const CalendarioScreen = () => {
                 </Text>
               </View>
               <Badge
-                variant="warning"
+                variant={getStatusVariant(evento)}
                 size="sm"
-                label={evento.estado?.replace('_', ' ') || 'Pendiente'}
+                label={getStatusLabel(evento)}
               />
             </View>
           </Card>

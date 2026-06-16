@@ -123,7 +123,7 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true, role: data.role };
     } catch (error) {
-      console.error("LOGIN ERROR:", {
+      console.warn("LOGIN ERROR:", {
         message: error.message,
         status: error.response?.status,
         data: error.response?.data,
